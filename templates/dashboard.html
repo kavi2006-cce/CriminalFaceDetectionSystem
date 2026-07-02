@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CFCS - Premium Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        :root {
+            --sidebar-bg: rgba(9, 18, 33, 0.6);
+            --sidebar-hover: rgba(79, 172, 254, 0.2);
+            --primary: #4facfe;
+            --primary-glow: rgba(79, 172, 254, 0.6);
+            --bg-main: transparent;
+            --text-dark: #ffffff;
+            --text-gray: #a3aed1;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --card-shadow: 0 18px 40px rgba(0, 0, 0, 0.2);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        
+        body { 
+            display: flex; height: 100vh; overflow: hidden; color: #fff;
+            background: linear-gradient(-45deg, #091221, #0d233a, #132238, #0e1e32);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            position: relative;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Ambient floating circles */
+        .circle { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.3; z-index: 0; animation: float 10s ease-in-out infinite; pointer-events: none; }
+        .circle-1 { width: 500px; height: 500px; top: -150px; left: -100px; background: linear-gradient(135deg, var(--primary), #00f2fe); }
+        .circle-2 { width: 400px; height: 400px; bottom: -100px; right: -50px; background: linear-gradient(135deg, #ff0844, #ffb199); animation-delay: -5s; }
+        @keyframes float { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-30px) scale(1.05); } }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            color: #fff; display: flex; flex-direction: column; z-index: 10; position: relative;
+            border-right: 1px solid var(--glass-border);
+        }
+
+        .sidebar-brand { padding: 35px 30px; display: flex; align-items: center; gap: 15px; }
+        .brand-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary), #00f2fe); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; color: #fff; box-shadow: 0 5px 15px var(--primary-glow); }
+        .brand-text h2 { font-size: 24px; font-weight: 700; letter-spacing: 1px; color: #fff;}
+        .brand-text p { font-size: 11px; color: var(--text-gray); text-transform: uppercase; letter-spacing: 2px; margin-top: 2px;}
+
+        .nav-links { padding: 20px 15px; flex: 1; display: flex; flex-direction: column; gap: 8px;}
+        .nav-links a { color: var(--text-gray); text-decoration: none; padding: 14px 20px; border-radius: 12px; display: flex; align-items: center; gap: 15px; font-size: 15px; font-weight: 500; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; }
+        .nav-links a:hover { color: #fff; background: var(--sidebar-hover); transform: translateX(5px); }
+        .nav-links a.active { color: #fff; background: linear-gradient(90deg, var(--sidebar-hover), transparent); border: 1px solid var(--glass-border); border-left: none; border-right: none;}
+        .nav-links a.active::before { content: ''; position: absolute; left: 0; top: 10%; height: 80%; width: 4px; background: var(--primary); border-radius: 4px; box-shadow: 0 0 10px var(--primary); }
+        .nav-links a i { font-size: 20px; transition: 0.3s; }
+        .nav-links a.active i { color: var(--primary); text-shadow: 0 0 10px var(--primary-glow); }
+
+        .logout { padding: 25px 20px; margin-bottom: 20px;}
+        .logout a { display: flex; align-items: center; justify-content: center; gap: 10px; background: rgba(255, 75, 75, 0.1); border: 1px solid rgba(255,75,75,0.2); color: #ff4b4b; text-decoration: none; padding: 14px; border-radius: 12px; font-weight: 600; font-size: 15px; transition: all 0.3s ease; }
+        .logout a:hover { background: #ff4b4b; color: #fff; box-shadow: 0 8px 20px rgba(255, 75, 75, 0.3); transform: translateY(-2px);}
+
+        /* Main Content */
+        .main-content {
+            flex: 1; padding: 40px 50px; overflow-y: auto; background: var(--bg-main);
+            position: relative; z-index: 1;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 45px; position: relative; z-index: 1;}
+        .header-greeting h1 { color: var(--text-dark); font-size: 34px; font-weight: 700; margin-bottom: 5px; }
+        .header-greeting p { color: #a3aed1; font-size: 15px; font-weight: 500;}
+
+        /* Cards */
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 30px; position: relative; z-index: 1; }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            padding: 30px; border-radius: 24px;
+            box-shadow: var(--card-shadow); border: 1px solid var(--glass-border);
+            display: flex; align-items: center; gap: 25px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative; overflow: hidden;
+        }
+
+        .card:hover { transform: translateY(-8px); box-shadow: 0 25px 50px rgba(0,0,0,0.3); border-color: rgba(255,255,255,0.2);}
+
+        .icon-box { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36px; }
+        .card-1 .icon-box { background: rgba(79, 172, 254, 0.1); color: var(--primary); box-shadow: inset 0 0 20px rgba(79, 172, 254, 0.2);}
+        .card-2 .icon-box { background: rgba(0, 242, 254, 0.1); color: #00c6ff; box-shadow: inset 0 0 20px rgba(0, 242, 254, 0.2);}
+
+        .card-docs { flex: 1; z-index: 2;}
+        .card-docs p { color: #a3aed1; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;}
+        .card-docs h2 { color: var(--text-dark); font-size: 42px; font-weight: 700; line-height: 1; margin: 0; text-shadow: 0 2px 10px rgba(0,0,0,0.3);}
+
+        .bg-shape { position: absolute; right: -50px; bottom: -50px; width: 150px; height: 150px; background: linear-gradient(135deg, rgba(79,172,254,0.1), rgba(0,242,254,0.1)); border-radius: 50%; z-index: 0; transition: 0.5s; filter: blur(10px); }
+        .card:hover .bg-shape { transform: scale(1.5); }
+
+        /* Welcome Banner */
+        .welcome-banner {
+            margin-top: 40px;
+            background: linear-gradient(135deg, rgba(79, 172, 254, 0.1), rgba(0, 242, 254, 0.05));
+            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            border-radius: 24px; padding: 40px; color: white;
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: var(--card-shadow); border: 1px solid var(--glass-border);
+            position: relative; overflow: hidden; z-index: 1;
+        }
+        
+        .welcome-content { position: relative; z-index: 2; }
+        .welcome-content h2 { font-size: 28px; margin-bottom: 10px; font-weight: 600;}
+        .welcome-content p { color: #e2e8f0; font-size: 15px; max-width: 500px; line-height: 1.6;}
+        .welcome-btn { margin-top: 20px; display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, var(--primary), #00f2fe); color: white; text-decoration: none; border-radius: 12px; font-weight: 600; transition: 0.3s; box-shadow: 0 10px 20px var(--primary-glow);}
+        .welcome-btn:hover { background: #3fa0f0; transform: translateY(-3px); box-shadow: 0 15px 30px var(--primary-glow);}
+
+    </style>
+</head>
+<body>
+    <div class="circle circle-1"></div>
+    <div class="circle circle-2"></div>
+    
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">
+                <span class="material-icons-round">fingerprint</span>
+            </div>
+            <div class="brand-text">
+                <h2>CFCS</h2>
+                <p>Security Portal</p>
+            </div>
+        </div>
+        <div class="nav-links">
+            <a href="/dashboard" class="active">
+                <span class="material-icons-round">dashboard</span>
+                Control Center
+            </a>
+            <a href="/staff_page">
+                <span class="material-icons-round">folder_shared</span>
+                Authorized Staff
+            </a>
+            <a href="/recognition_page">
+                <span class="material-icons-round">center_focus_strong</span>
+                Vault Access Scanner
+            </a>
+        </div>
+        <div class="logout">
+            <a href="#" onclick="logout()">
+                <span class="material-icons-round">logout</span>
+                Secure Logout
+            </a>
+        </div>
+    </div>
+    
+    <div class="main-content">
+        <div class="header">
+            <div class="header-greeting">
+                <h1>Security Operations Area</h1>
+                <p>Real-time overview of the bank locker access system</p>
+            </div>
+        </div>
+        
+        <div class="cards">
+            <div class="card card-1">
+                <div class="bg-shape"></div>
+                <div class="icon-box">
+                    <span class="material-icons-round">people_alt</span>
+                </div>
+                <div class="card-docs">
+                    <p>Authorized Staff</p>
+                    <h2 id="totalStaff">--</h2>
+                </div>
+            </div>
+            
+            <div class="card card-2">
+                <div class="bg-shape"></div>
+                <div class="icon-box">
+                    <span class="material-icons-round">verified_user</span>
+                </div>
+                <div class="card-docs">
+                    <p>System Status</p>
+                    <h2 id="recentScans" style="font-size: 32px; padding-top: 8px;">Active</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="welcome-banner">
+            <div class="welcome-content">
+                <h2>Welcome to Security Core</h2>
+                <p>The system is currently online and monitoring. You can manage authorized staff access or perform vault access scans from the sidebar menu.</p>
+                <a href="/recognition_page" class="welcome-btn">Launch Access Scanner</a>
+            </div>
+            <!-- Decorative circle -->
+            <div style="position: absolute; right: -50px; top: -100px; width: 300px; height: 300px; background: radial-gradient(circle, rgba(79,172,254,0.3) 0%, transparent 70%); filter: blur(20px);"></div>
+        </div>
+    </div>
+    <script>
+        const token = localStorage.getItem('token');
+        if(!token) window.location.href = '/';
+
+        function logout() {
+            localStorage.removeItem('token');
+            document.body.style.opacity = '0';
+            document.body.style.transition = 'opacity 0.4s';
+            setTimeout(() => window.location.href = '/', 400);
+        }
+
+        async function fetchStats() {
+            try {
+                const res = await fetch('/api/stats', { headers: { 'Authorization': `Bearer ${token}` } });
+                if(res.ok) {
+                    const data = await res.json();
+                    document.getElementById('totalStaff').textContent = data.total_staff;
+                } else if(res.status === 401) { logout(); }
+            } catch(e) { console.error(e); }
+        }
+        
+        document.body.style.opacity = '0';
+        window.onload = () => {
+            document.body.style.transition = 'opacity 0.5s ease-in';
+            document.body.style.opacity = '1';
+        };
+
+        fetchStats();
+    </script>
+</body>
+</html>

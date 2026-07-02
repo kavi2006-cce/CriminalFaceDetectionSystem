@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detect Face</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="add-criminal.html">Add Criminal</a>
+        <a href="criminal-list.html">Criminal List</a>
+        <a href="detect-face.html">Detect Face</a>
+        <a href="login.html">Logout</a>
+    </div>
+
+    <div class="card center">
+        <h2>Face Detection Module</h2>
+        <p>Upload an image and detect faces using the Python OpenCV service.</p>
+
+        <input type="file" id="imageInput" accept="image/*">
+        <button onclick="detectFace()">Detect Face</button>
+
+        <div id="status" class="small-text" style="margin-top: 12px;"></div>
+        <div style="margin-top: 16px;">
+            <img id="outputImage" src="" alt="Detected face result" style="max-width: 100%; border: 2px solid #ffffff; display: none;" />
+        </div>
+    </div>
+
+    <script>
+        async function detectFace() {
+            const status = document.getElementById('status');
+            const input = document.getElementById('imageInput');
+            const output = document.getElementById('outputImage');
+
+            if (!input.files.length) {
+                status.style.color = 'red';
+                status.textContent = 'Choose an image first.';
+                return;
+            }
+
+            const file = input.files[0];
+            const form = new FormData();
+            form.append('image', file);
+
+            status.style.color = 'black';
+            status.textContent = 'Detecting faces...';
+            output.style.display = 'none';
+
+            try {
+                const resp = await fetch('http://localhost:5000/detect', {
+                    method: 'POST',
+                    body: form
+                });
+
+                if (!resp.ok) {
+                    throw new Error('Detection request failed: ' + resp.status);
+                }
+
+                const data = await resp.json();
+                const imageUrl = 'data:image/jpeg;base64,' + data.image;
+                output.src = imageUrl;
+                output.style.display = 'block';
+
+                status.style.color = 'green';
+                status.textContent = `${data.faces} face(s) detected.`;
+            } catch (error) {
+                console.error(error);
+                status.style.color = 'red';
+                status.textContent = 'Face detection failed. Make sure python service is running on http://localhost:5000.';
+            }
+        }
+    </script>
+</body>
+</html>

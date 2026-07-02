@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Criminal Face Detection System</title>
+
+<style>
+
+body{
+    margin:0;
+    font-family:Arial;
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background: linear-gradient(135deg,#141E30,#243B55);
+}
+
+.container{
+    background:white;
+    padding:40px;
+    width:350px;
+    border-radius:10px;
+    text-align:center;
+    box-shadow:0 10px 25px rgba(0,0,0,0.3);
+}
+
+h1{
+    font-size:22px;
+    color:#1a237e;
+}
+
+h2{
+    margin-bottom:20px;
+    color:#555;
+}
+
+input{
+    width:100%;
+    padding:10px;
+    margin:10px 0;
+    border-radius:5px;
+    border:1px solid #ccc;
+}
+
+button{
+    width:100%;
+    padding:12px;
+    background:#1a237e;
+    color:white;
+    border:none;
+    border-radius:5px;
+    font-size:16px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#3949ab;
+}
+
+.demo{
+    margin-top:15px;
+    font-size:13px;
+    color:#777;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>Criminal Face Detection System</h1>
+<h2>Admin Login</h2>
+
+<input type="text" id="username" placeholder="Username">
+
+<input type="password" id="password" placeholder="Password">
+
+<button onclick="login()">Login</button>
+
+<div class="demo">
+Demo Login: admin / admin123
+</div>
+
+</div>
+
+<script>
+
+function login(){
+
+let u=document.getElementById("username").value
+let p=document.getElementById("password").value
+
+if(u==="admin" && p==="admin123"){
+window.location.href="dashboard.html"
+}
+else{
+alert("Invalid Login")
+}
+
+}
+
+</script>
+
+</body>
+</html>

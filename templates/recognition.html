@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CFCS - Face Recognition scanner</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        :root {
+            --sidebar-bg: rgba(9, 18, 33, 0.6);
+            --sidebar-hover: rgba(79, 172, 254, 0.2);
+            --primary: #4facfe;
+            --primary-glow: rgba(79, 172, 254, 0.6);
+            --bg-main: transparent;
+            --text-dark: #ffffff;
+            --text-gray: #a3aed1;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --card-shadow: 0 18px 40px rgba(0, 0, 0, 0.2);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --success: #00b09b;
+            --danger: #ff4b2b;
+            --scanner-glow: rgba(0, 242, 254, 0.5);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        
+        body { 
+            display: flex; height: 100vh; overflow: hidden; color: #fff;
+            background: linear-gradient(-45deg, #091221, #0d233a, #132238, #0e1e32);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            position: relative;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Ambient floating circles */
+        .circle { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.3; z-index: 0; animation: float 10s ease-in-out infinite; pointer-events: none; }
+        .circle-1 { width: 500px; height: 500px; top: -150px; left: -100px; background: linear-gradient(135deg, var(--primary), #00f2fe); }
+        .circle-2 { width: 400px; height: 400px; bottom: -100px; right: -50px; background: linear-gradient(135deg, #ff0844, #ffb199); animation-delay: -5s; }
+        @keyframes float { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-30px) scale(1.05); } }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            color: #fff; display: flex; flex-direction: column; z-index: 10; position: relative;
+            border-right: 1px solid var(--glass-border);
+        }
+        .sidebar-brand { padding: 35px 30px; display: flex; align-items: center; gap: 15px; }
+        .brand-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary), #00f2fe); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; color: #fff; box-shadow: 0 5px 15px var(--primary-glow); }
+        .brand-text h2 { font-size: 24px; font-weight: 700; letter-spacing: 1px; color: #fff;}
+        .brand-text p { font-size: 11px; color: var(--text-gray); text-transform: uppercase; letter-spacing: 2px; margin-top: 2px;}
+        .nav-links { padding: 20px 15px; flex: 1; display: flex; flex-direction: column; gap: 8px;}
+        .nav-links a { color: var(--text-gray); text-decoration: none; padding: 14px 20px; border-radius: 12px; display: flex; align-items: center; gap: 15px; font-size: 15px; font-weight: 500; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; }
+        .nav-links a:hover { color: #fff; background: var(--sidebar-hover); transform: translateX(5px); }
+        .nav-links a.active { color: #fff; background: linear-gradient(90deg, var(--sidebar-hover), transparent); border: 1px solid var(--glass-border); border-left: none; border-right: none;}
+        .nav-links a.active::before { content: ''; position: absolute; left: 0; top: 10%; height: 80%; width: 4px; background: var(--primary); border-radius: 4px; box-shadow: 0 0 10px var(--primary); }
+        .nav-links a i { font-size: 20px; transition: 0.3s; }
+        .nav-links a.active i { color: var(--primary); text-shadow: 0 0 10px var(--primary-glow); }
+        .logout { padding: 25px 20px; margin-bottom: 20px;}
+        .logout a { display: flex; align-items: center; justify-content: center; gap: 10px; background: rgba(255, 75, 75, 0.1); border: 1px solid rgba(255,75,75,0.2); color: #ff4b4b; text-decoration: none; padding: 14px; border-radius: 12px; font-weight: 600; font-size: 15px; transition: all 0.3s ease; }
+        .logout a:hover { background: #ff4b4b; color: #fff; box-shadow: 0 8px 20px rgba(255, 75, 75, 0.3); transform: translateY(-2px);}
+
+        /* Main Content */
+        .main-content {
+            flex: 1; padding: 40px 50px; overflow-y: auto; background: var(--bg-main);
+            position: relative; z-index: 1;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; position: relative; z-index: 1;}
+        .header h1 { color: var(--text-dark); font-size: 34px; font-weight: 700; margin-bottom: 5px; }
+
+        .recognition-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; position: relative; z-index: 1; }
+        
+        .panel { 
+            background: var(--card-bg); padding: 35px; border-radius: 24px; 
+            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            box-shadow: var(--card-shadow); display: flex; flex-direction: column;
+            border: 1px solid var(--glass-border);
+        }
+        
+        .panel h3 { 
+            margin-top: 0; color: var(--text-dark); font-size: 20px; font-weight: 600;
+            display: flex; align-items: center; gap: 10px; margin-bottom: 25px;
+        }
+        .panel h3 i { color: var(--primary); }
+
+        /* Scanner Display */
+        .video-wrapper {
+            position: relative; width: 100%; aspect-ratio: 4/3; 
+            background: #091221; border-radius: 16px; overflow: hidden;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+            border: 2px solid #2b3674;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .video-wrapper.active {
+            border-color: var(--primary);
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.8), 0 0 20px var(--scanner-glow);
+        }
+
+        #webcam { width: 100%; height: 100%; object-fit: cover; filter: contrast(1.1) brightness(1.1);}
+
+        /* Scanning Overlay elements */
+        .scan-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
+            display: none; z-index: 5;
+        }
+        .video-wrapper.active .scan-overlay { display: block; }
+
+        .scan-line {
+            width: 100%; height: 4px; background: rgba(0, 242, 254, 0.8);
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.8), 0 0 30px rgba(0, 242, 254, 0.5);
+            animation: scan 3s linear infinite;
+            position: absolute; top: 0; left: 0;
+        }
+        @keyframes scan { 0% { top: 0%; } 50% { top: 100%; } 100% { top: 0%; } }
+
+        .corner { position: absolute; width: 40px; height: 40px; border: 3px solid var(--primary); }
+        .top-left { top: 20px; left: 20px; border-right: none; border-bottom: none; }
+        .top-right { top: 20px; right: 20px; border-left: none; border-bottom: none; }
+        .bottom-left { bottom: 20px; left: 20px; border-right: none; border-top: none; }
+        .bottom-right { bottom: 20px; right: 20px; border-left: none; border-top: none; }
+
+        .controls { margin-top: 25px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        
+        .btn { 
+            padding: 14px; color: #fff; border: none; border-radius: 12px; 
+            font-size: 15px; font-weight: 600; cursor: pointer; transition: 0.3s; 
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn-alt { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .btn-alt:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-2px); }
+        
+        .btn-action { background: linear-gradient(135deg, var(--primary), #00f2fe); box-shadow: 0 10px 20px var(--primary-glow); }
+        .btn-action:hover { transform: translateY(-2px); box-shadow: 0 15px 25px var(--primary-glow); }
+        .btn-action:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; background: rgba(255, 255, 255, 0.1); }
+
+        .or-divider { text-align: center; margin: 25px 0; color: var(--text-gray); font-size: 14px; font-weight: 500; position: relative; }
+        .or-divider::before, .or-divider::after { content: ""; position: absolute; top: 50%; width: 42%; height: 1px; background: rgba(255, 255, 255, 0.1); }
+        .or-divider::before { left: 0; } .or-divider::after { right: 0; }
+
+        /* File Upload */
+        .file-upload { display: flex; flex-direction: column; gap: 15px; }
+        .upload-area { position: relative; width: 100%; height: 60px; border: 2px dashed rgba(255, 255, 255, 0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(255, 255, 255, 0.05); cursor: pointer; transition: 0.3s; color: var(--text-gray); font-weight: 500;}
+        .upload-area:hover { border-color: var(--primary); background: rgba(79, 172, 254, 0.1); color: var(--primary);}
+        .upload-area input { position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+
+        /* Results Panel */
+        .panel-results { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 400px; }
+        
+        #loading { display: none; text-align: center; }
+        .spinner { width: 50px; height: 50px; border: 5px solid rgba(79, 172, 254, 0.2); border-top: 5px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #initialState { color: var(--text-gray); }
+        #initialState i { font-size: 80px; color: rgba(255, 255, 255, 0.2); margin-bottom: 15px; }
+
+        .result-box { display: none; width: 100%; flex-direction: column; align-items: center; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .status-badge { padding: 8px 20px; border-radius: 30px; font-weight: 700; font-size: 14px; margin-bottom: 25px; letter-spacing: 1px; text-transform: uppercase; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .match .status-badge { background: linear-gradient(135deg, #00b09b, #96c93d); color: white; }
+        .nomatch .status-badge { background: linear-gradient(135deg, #ff416c, #ff4b2b); color: white; }
+
+        .result-img-wrapper { 
+            width: 180px; height: 180px; border-radius: 20px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2); overflow: hidden; margin-bottom: 30px;
+            position: relative; padding: 5px; background: white;
+        }
+        .result-img-inner { width: 100%; height: 100%; border-radius: 15px; overflow: hidden; }
+        .result-img-inner img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .match .result-img-wrapper { background: linear-gradient(135deg, #00b09b, #96c93d); animation: pulseMatch 2s infinite; }
+        .nomatch .result-img-wrapper { background: linear-gradient(135deg, #ff416c, #ff4b2b); }
+
+        @keyframes pulseMatch { 0% { box-shadow: 0 0 0 0 rgba(0, 176, 155, 0.4); } 70% { box-shadow: 0 0 0 20px rgba(0, 176, 155, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 176, 155, 0); } }
+
+        .accuracy-readout { font-family: 'JetBrains Mono', monospace; font-size: 32px; font-weight: 700; margin-top: -10px; margin-bottom: 20px; color: var(--text-dark); }
+        
+        .result-details { background: rgba(255, 255, 255, 0.05); padding: 25px; border-radius: 16px; width: 100%; text-align: left; border: 1px solid rgba(255, 255, 255, 0.1); }
+        .detail-row { display: flex; margin-bottom: 12px; border-bottom: 1px dashed rgba(255, 255, 255, 0.2); padding-bottom: 12px; }
+        .detail-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .detail-label { width: 120px; color: var(--text-gray); font-size: 14px; font-weight: 500; }
+        .detail-value { flex: 1; color: var(--text-dark); font-size: 15px; font-weight: 600; }
+        .detail-crime { color: var(--danger); }
+        
+        .nomatch-msg { font-size: 18px; color: var(--text-gray); max-width: 80%; line-height: 1.6;}
+
+    </style>
+</head>
+<body>
+    <div class="circle circle-1"></div>
+    <div class="circle circle-2"></div>
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">
+                <span class="material-icons-round">fingerprint</span>
+            </div>
+            <div class="brand-text">
+                <h2>CFCS</h2>
+                <p>Security Portal</p>
+            </div>
+        </div>
+        <div class="nav-links">
+            <a href="/dashboard">
+                <span class="material-icons-round">dashboard</span>
+                Control Center
+            </a>
+            <a href="/staff_page">
+                <span class="material-icons-round">folder_shared</span>
+                Authorized Staff
+            </a>
+            <a href="/recognition_page" class="active">
+                <span class="material-icons-round">center_focus_strong</span>
+                Vault Access Scanner
+            </a>
+        </div>
+        <div class="logout">
+            <a href="#" onclick="logout()">
+                <span class="material-icons-round">logout</span>
+                Secure Logout
+            </a>
+        </div>
+    </div>
+    
+    <div class="main-content">
+        <div class="header">
+            <div>
+                <h1>Vault Security Scanner</h1>
+                <p style="color: #8f9bba; font-size: 15px; font-weight: 500; margin-top: 5px;">AI-Powered Access Control Module</p>
+            </div>
+        </div>
+        
+        <div class="recognition-layout">
+            <!-- Left Side: Scanner -->
+            <div class="panel">
+                <h3><span class="material-icons-round">document_scanner</span> Data Acquisition</h3>
+                
+                <div class="video-wrapper" id="videoWrapper">
+                    <video id="webcam" autoplay playsinline></video>
+                    <div class="scan-overlay">
+                        <div class="scan-line"></div>
+                        <div class="corner top-left"></div>
+                        <div class="corner top-right"></div>
+                        <div class="corner bottom-left"></div>
+                        <div class="corner bottom-right"></div>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button class="btn btn-alt" id="startCamBtn">
+                        <span class="material-icons-round">videocam</span> Activate Optics
+                    </button>
+                    <button class="btn btn-action" id="captureBtn" disabled>
+                        <span class="material-icons-round">camera</span> Execute Scan
+                    </button>
+                </div>
+                
+                <div class="or-divider">ALTERNATE METHOD</div>
+                
+                <div class="file-upload">
+                    <div class="upload-area">
+                        <span class="material-icons-round">photo_library</span>
+                        <span id="uploadText">Select from directory...</span>
+                        <input type="file" id="uploadImage" accept="image/*">
+                    </div>
+                    <button class="btn btn-action" id="uploadBtn" style="width: 100%;">
+                        <span class="material-icons-round">cloud_sync</span> Analyze Image File
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Right Side: Results -->
+            <div class="panel panel-results">
+                <h3><span class="material-icons-round">analytics</span> Analysis Output</h3>
+                
+                <div id="loading">
+                    <div class="spinner"></div>
+                    <h4 style="color: var(--text-dark); margin-bottom: 5px;">Processing Biometrics...</h4>
+                    <p style="color: var(--text-gray); font-size: 14px;">Extracting 128-point facial landmarks</p>
+                </div>
+
+                <div id="initialState">
+                    <i class="material-icons-round">radar</i>
+                    <h3>System Ready</h3>
+                    <p>Awaiting visual input for cross-referencing against national database.</p>
+                </div>
+                
+                <div class="result-box" id="resultBox">
+                    <div class="status-badge" id="statusBadge">Status</div>
+                    
+                    <div id="matchedCriminalContainer" style="display:none; width: 100%; display: flex; flex-direction: column; align-items: center;">
+                        <div class="accuracy-readout" id="matchConfidence">99.8% Match</div>
+                        
+                        <div class="result-img-wrapper" id="resultImgBorder">
+                            <div class="result-img-inner">
+                                <img id="criminalImg" src="" alt="Authorized Staff">
+                            </div>
+                        </div>
+                        
+                        <div class="result-details">
+                            <div class="detail-row">
+                                <div class="detail-label">Subject Name</div>
+                                <div class="detail-value" id="r_name"></div>
+                            </div>
+                            <div class="detail-row">
+                                <div class="detail-label">Age / Sex</div>
+                                <div class="detail-value"><span id="r_age"></span> yrs / <span id="r_gender"></span></div>
+                            </div>
+                            <div class="detail-row">
+                                <div class="detail-label">Role</div>
+                                <div class="detail-value detail-crime" id="r_crime"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="noMatchContainer" style="display:none; flex-direction: column; align-items: center;">
+                        <i class="material-icons-round" style="font-size: 80px; color: #cbd5e0; margin: 20px 0;">gpp_good</i>
+                        <p class="nomatch-msg" id="nomatchMsg"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="canvas" style="display:none;"></canvas>
+    <audio id="siren" src="https://assets.mixkit.co/active_storage/sfx/995/995-preview.mp3" preload="auto"></audio>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if(!token) window.location.href = '/';
+        function logout() { localStorage.removeItem('token'); window.location.href = '/'; }
+
+        const video = document.getElementById('webcam');
+        const startCamBtn = document.getElementById('startCamBtn');
+        const captureBtn = document.getElementById('captureBtn');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const canvas = document.getElementById('canvas');
+        const videoWrapper = document.getElementById('videoWrapper');
+        
+        let stream = null;
+
+        // Visual update for file input
+        document.getElementById('uploadImage').addEventListener('change', function(e) {
+            if(this.files.length > 0) {
+                document.getElementById('uploadText').textContent = this.files[0].name;
+                document.getElementById('uploadText').style.color = 'var(--primary)';
+                document.getElementById('uploadText').style.fontWeight = '600';
+            }
+        });
+
+        // Start Webcam
+        startCamBtn.addEventListener('click', async () => {
+            try {
+                if(!stream){
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    video.srcObject = stream;
+                    startCamBtn.innerHTML = '<span class="material-icons-round">videocam_off</span> Deactivate Optics';
+                    startCamBtn.style.background = '#e53e3e';
+                    captureBtn.disabled = false;
+                    videoWrapper.classList.add('active');
+                } else {
+                    stream.getTracks().forEach(t => t.stop());
+                    video.srcObject = null;
+                    stream = null;
+                    startCamBtn.innerHTML = '<span class="material-icons-round">videocam</span> Activate Optics';
+                    startCamBtn.style.background = '';
+                    captureBtn.disabled = true;
+                    videoWrapper.classList.remove('active');
+                }
+            } catch (err) {
+                Swal.fire({title: 'Hardware Error', text: 'Camera access denied or device not found.', icon: 'error', confirmButtonColor: '#2b3674'});
+            }
+        });
+
+        // Use Webcam Photo
+        captureBtn.addEventListener('click', () => {
+            // Flash effect
+            videoWrapper.style.opacity = '0.2';
+            setTimeout(() => videoWrapper.style.opacity = '1', 100);
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            canvas.toBlob(blob => {
+                const file = new File([blob], "capture.jpg", { type: "image/jpeg" });
+                processScan(file);
+            }, 'image/jpeg');
+        });
+
+        // Use Uploaded Photo
+        uploadBtn.addEventListener('click', () => {
+            const input = document.getElementById('uploadImage');
+            if(input.files.length === 0) {
+                Swal.fire({title: 'Missing Input', text: 'Please select an image file first.', icon: 'warning', confirmButtonColor: '#4facfe'});
+                return;
+            }
+            processScan(input.files[0]);
+        });
+
+        async function processScan(file) {
+            document.getElementById('initialState').style.display = 'none';
+            document.getElementById('resultBox').style.display = 'none';
+            document.getElementById('matchedCriminalContainer').style.display = 'none';
+            document.getElementById('noMatchContainer').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+
+            const formData = new FormData();
+            formData.append("photo", file);
+
+            try {
+                const res = await fetch('/api/recognize', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+                const data = await res.json();
+                
+                // Add a small artificial delay to make the scanning feel more "thorough/premium"
+                setTimeout(() => {
+                    document.getElementById('loading').style.display = 'none';
+                    
+                    const rb = document.getElementById('resultBox');
+                    const badge = document.getElementById('statusBadge');
+                    const confHtml = document.getElementById('matchConfidence');
+                    
+                    rb.style.display = 'flex';
+                    
+                    if(data.match) {
+                        rb.className = 'result-box match';
+                        badge.textContent = "ACCESS GRANTED";
+                        confHtml.textContent = `IDENTITY VERIFIED`;
+                        
+                        const c = data.staff;
+                        document.getElementById('criminalImg').src = c.image_path;
+                        document.getElementById('r_name').textContent = c.name;
+                        document.getElementById('r_age').textContent = c.age;
+                        document.getElementById('r_gender').textContent = c.gender;
+                        document.getElementById('r_crime').textContent = c.department_or_role;
+                        
+                        document.getElementById('matchedCriminalContainer').style.display = 'flex';
+                        
+                        // Alert
+                        Swal.fire({
+                            title: 'Vault Unlocked',
+                            html: `Authorized Personnel: <b>${c.name}</b><br>Role: <span style="color:#00b09b;">${c.department_or_role}</span>`,
+                            icon: 'success',
+                            confirmButtonText: 'Proceed to Vault',
+                            confirmButtonColor: '#00b09b'
+                        });
+
+                    } else {
+                        // Play siren sound for intruder
+                        const siren = document.getElementById('siren');
+                        if (siren) {
+                            siren.currentTime = 0;
+                            siren.play().catch(e => console.error('Audio playback failed:', e));
+                        }
+
+                        rb.className = 'result-box nomatch';
+                        badge.textContent = "ACCESS DENIED - ALERT";
+                        document.getElementById('nomatchMsg').textContent = data.message || "Facial signature does not correlate with any authorized staff in the security registry.";
+                        
+                        document.getElementById('noMatchContainer').style.display = 'flex';
+                        
+                        Swal.fire({
+                            title: 'INTRUDER ALERT',
+                            text: 'Access Denied. Unauthorized individual detected at vault.',
+                            icon: 'error',
+                            confirmButtonText: 'Acknowledge Threat',
+                            confirmButtonColor: '#ff4b2b',
+                            background: '#fff3f3'
+                        });
+                    }
+                }, 800);
+                
+            } catch(e) {
+                console.error(e);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('initialState').style.display = 'block';
+                Swal.fire({title: 'System Error', text: 'Facial extraction failed. Please ensure a clear view of the face.', icon: 'error', confirmButtonColor: '#2b3674'});
+            }
+        }
+
+        // Fade in
+        document.body.style.opacity = '0';
+        window.onload = () => {
+            document.body.style.transition = 'opacity 0.4s ease-in';
+            document.body.style.opacity = '1';
+        };
+    </script>
+</body>
+</html>

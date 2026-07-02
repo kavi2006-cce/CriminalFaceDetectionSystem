@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Criminal List - Criminal Face Detection</title>
+    <style>
+        body{
+            margin:0;
+            font-family:Arial, sans-serif;
+            background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+            color:white;
+        }
+
+        .navbar{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            padding:20px 40px;
+            background:rgba(0,0,0,0.3);
+            box-shadow:0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .navbar h2{
+            margin:0;
+        }
+
+        .navbar a{
+            color:white;
+            text-decoration:none;
+            margin-left:20px;
+            font-weight:bold;
+        }
+
+        .container{
+            width:92%;
+            max-width:1100px;
+            margin:50px auto;
+            background:rgba(255,255,255,0.1);
+            padding:25px;
+            border-radius:15px;
+            box-shadow:0 8px 20px rgba(0,0,0,0.3);
+            backdrop-filter: blur(6px);
+        }
+
+        h2{
+            text-align:center;
+            margin-bottom:25px;
+        }
+
+        table{
+            width:100%;
+            border-collapse:collapse;
+            background:white;
+            color:black;
+            border-radius:10px;
+            overflow:hidden;
+        }
+
+        th{
+            background:#1e3c72;
+            color:white;
+            padding:14px;
+            font-size:15px;
+        }
+
+        td{
+            padding:12px;
+            text-align:center;
+            border-bottom:1px solid #ddd;
+        }
+
+        tr:hover{
+            background:#f2f6ff;
+        }
+
+        .empty{
+            text-align:center;
+            color:#eee;
+            margin-top:20px;
+        }
+
+        .footer{
+            text-align:center;
+            margin-top:20px;
+            color:#d9e2ec;
+            font-size:14px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="navbar">
+        <h2>Criminal Face Detection</h2>
+        <div>
+            <a href="dashboard.html">Dashboard</a>
+            <a href="add-criminal.html">Add Criminal</a>
+            <a href="detect-face.html">Detect Face</a>
+            <a href="login.html">Logout</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Criminal Records</h2>
+
+        <div style="margin-bottom: 20px; display:flex; justify-content:space-between; gap:8px;">
+            <input id="searchName" type="text" placeholder="Search by name" style="flex:1; padding:8px; border-radius:5px; border:1px solid #ccc;">
+            <button onclick="searchCriminals()" style="padding:9px 14px; background:#1e90ff; border:none; border-radius:6px; color:#fff; cursor:pointer;">Search</button>
+            <button onclick="loadCriminals()" style="padding:9px 14px; background:#4caf50; border:none; border-radius:6px; color:#fff; cursor:pointer;">Refresh</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Age</th>
+                    <th>Gender</th>
+                    <th>Crime Type</th>
+                    <th>Location</th>
+                    <th>Photo</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="criminalTableBody"></tbody>
+        </table>
+
+        <div class="footer">
+            Criminal records fetched from Spring Boot backend and MySQL database
+        </div>
+    </div>
+
+    <script>
+        async function loadCriminals(nameFilter = '') {
+            const tableBody = document.getElementById("criminalTableBody");
+            const searchName = document.getElementById("searchName");
+            const query = nameFilter || (searchName ? searchName.value.trim() : '');
+
+            try {
+                const url = query ? `http://localhost:8080/criminal/search?name=${encodeURIComponent(query)}` : 'http://localhost:8080/criminal/all';
+                const response = await fetch(url);
+                const criminals = await response.json();
+
+                tableBody.innerHTML = "";
+
+                if (!criminals.length) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="8">No criminal records found</td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                criminals.forEach(criminal => {
+                    const row = `
+                        <tr>
+                            <td>${criminal.id}</td>
+                            <td>${criminal.name}</td>
+                            <td>${criminal.age}</td>
+                            <td>${criminal.gender}</td>
+                            <td>${criminal.crimeType}</td>
+                            <td>${criminal.location}</td>
+                            <td>${criminal.photo}</td>
+                            <td>
+                                <button style="background:#e74c3c; color:#fff; border:0; padding:6px 8px; border-radius:4px; cursor:pointer;" onclick="deleteCriminal(${criminal.id})">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                    tableBody.innerHTML += row;
+                });
+            } catch (error) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="8">Error loading criminal records</td>
+                    </tr>
+                `;
+                console.error(error);
+            }
+        }
+
+        async function deleteCriminal(id) {
+            if (!confirm('Delete criminal record #' + id + '?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://localhost:8080/criminal/${id}`, { method: 'DELETE' });
+                if (!response.ok) {
+                    throw new Error('Failed to delete record (status ' + response.status + ')');
+                }
+                loadCriminals();
+            } catch (err) {
+                alert('Delete failed: ' + err.message);
+            }
+        }
+
+        function searchCriminals() {
+            loadCriminals();
+        }
+
+        loadCriminals();
+    </script>
+
+</body>
+</html>    
