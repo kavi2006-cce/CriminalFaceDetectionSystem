@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CFCS — Criminal Database</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    .criminal-card {
+      background: var(--bg-card); border: 1px solid var(--border-card);
+      border-radius: var(--radius-lg); padding: 20px;
+      transition: var(--transition); position: relative; overflow: hidden;
+    }
+    .criminal-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: rgba(255,255,255,0.1); }
+    .criminal-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: var(--threat-accent, linear-gradient(90deg, #4facfe, #00f2fe));
+    }
+    .criminal-card.threat-high::before   { background: linear-gradient(90deg, #ef4444, #f97316); }
+    .criminal-card.threat-critical::before { background: linear-gradient(90deg, #dc2626, #991b1b); }
+    .criminal-card.threat-medium::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .criminal-card.threat-low::before    { background: linear-gradient(90deg, #22c55e, #4ade80); }
+
+    .criminal-avatar-lg {
+      width: 64px; height: 64px; border-radius: 14px; object-fit: cover;
+      border: 2px solid var(--border);
+    }
+    .criminal-avatar-placeholder-lg {
+      width: 64px; height: 64px; border-radius: 14px;
+      background: linear-gradient(135deg, #1a2a4a, #2d4a7a);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; color: rgba(255,255,255,0.2);
+      flex-shrink: 0;
+    }
+
+    .filter-bar {
+      display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+      margin-bottom: 22px;
+    }
+    .filter-chip {
+      padding: 7px 14px; border-radius: 20px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      color: var(--text-secondary); font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: var(--transition);
+    }
+    .filter-chip.active, .filter-chip:hover {
+      background: rgba(79,172,254,0.1); border-color: rgba(79,172,254,0.3);
+      color: var(--primary);
+    }
+    .filter-chip.danger.active { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: #ef4444; }
+
+    .criminals-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 18px;
+    }
+
+    .view-toggle { display: flex; gap: 4px; }
+    .view-btn { padding: 7px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted); cursor: pointer; transition: var(--transition); }
+    .view-btn.active { background: rgba(79,172,254,0.1); border-color: rgba(79,172,254,0.3); color: var(--primary); }
+  </style>
+</head>
+<body>
+<div class="page-bg"></div>
+<div class="app-shell">
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-logo"><span class="material-icons-round">fingerprint</span></div>
+      <div class="brand-info"><h2>CFCS</h2><p>Intelligence Platform</p></div>
+    </div>
+    <div class="sys-status"><div class="dot"></div>SYSTEM ACTIVE</div>
+    <div class="nav-section">
+      <div class="nav-label">Main</div>
+      <a href="/dashboard" class="nav-item"><span class="material-icons-round nav-icon">dashboard</span>Dashboard</a>
+      <a href="/surveillance" class="nav-item"><span class="material-icons-round nav-icon">videocam</span>Live Surveillance</a>
+      <a href="/criminals" class="nav-item"><span class="material-icons-round nav-icon">person_search</span>Criminal Database</a>
+      <div class="nav-label">Operations</div>
+      <a href="/detections" class="nav-item"><span class="material-icons-round nav-icon">remove_red_eye</span>Detection Logs</a>
+      <a href="/analytics" class="nav-item"><span class="material-icons-round nav-icon">analytics</span>Analytics</a>
+      <a href="/alerts" class="nav-item"><span class="material-icons-round nav-icon">notifications_active</span>Alert Center<span class="nav-badge" id="alertBadge" style="display:none">!</span></a>
+      <div class="nav-label">System</div>
+      <a href="/chat" class="nav-item"><span class="material-icons-round nav-icon">smart_toy</span>AI Assistant</a>
+      <a href="/settings" class="nav-item"><span class="material-icons-round nav-icon">settings</span>Settings</a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="admin-card">
+        <div class="admin-avatar"><span class="material-icons-round">admin_panel_settings</span></div>
+        <div class="admin-info"><p>Admin</p><span>System Administrator</span></div>
+      </div>
+      <button class="logout-btn" onclick="Auth.logout()"><span class="material-icons-round">logout</span>Secure Logout</button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="breadcrumb"><a href="/dashboard">Home</a><span>›</span><span>Criminal Database</span></div>
+        <h1>Criminal Database</h1>
+        <p id="dbSummary">Loading records…</p>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV()"><span class="material-icons-round">download</span>Export CSV</button>
+        <button class="btn btn-primary" onclick="openModal('addCriminalModal')">
+          <span class="material-icons-round">person_add</span>Add Criminal
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <div class="search-bar" style="max-width:280px">
+        <span class="material-icons-round">search</span>
+        <input type="text" id="searchInput" placeholder="Search name, FIR, alias…" oninput="filterCriminals()">
+      </div>
+      <button class="filter-chip active" onclick="setFilter('all', this)">All</button>
+      <button class="filter-chip danger" onclick="setFilter('Critical', this)">🔴 Critical</button>
+      <button class="filter-chip" onclick="setFilter('High', this)">🟠 High</button>
+      <button class="filter-chip" onclick="setFilter('Medium', this)">🟡 Medium</button>
+      <button class="filter-chip" onclick="setFilter('Low', this)">🟢 Low</button>
+      <div style="margin-left:auto" class="view-toggle">
+        <button class="view-btn active" id="gridViewBtn" onclick="setView('grid')"><span class="material-icons-round" style="font-size:18px">grid_view</span></button>
+        <button class="view-btn" id="listViewBtn" onclick="setView('list')"><span class="material-icons-round" style="font-size:18px">view_list</span></button>
+      </div>
+    </div>
+
+    <!-- Grid view -->
+    <div class="criminals-grid" id="criminalsGrid"></div>
+
+    <!-- List/Table view -->
+    <div class="table-wrapper" id="criminalsTable" style="display:none">
+      <table>
+        <thead><tr><th>Photo</th><th>Name / Alias</th><th>FIR Number</th><th>Threat</th><th>Status</th><th>Crime</th><th>Last Seen</th><th>Actions</th></tr></thead>
+        <tbody id="criminalsTableBody"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- Add Criminal Modal -->
+<div class="modal-overlay" id="addCriminalModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2><span class="material-icons-round" style="vertical-align:middle;margin-right:8px;color:var(--primary)">person_add</span>Register Criminal</h2>
+      <button class="modal-close" onclick="closeModal('addCriminalModal')"><span class="material-icons-round">close</span></button>
+    </div>
+    <form id="addCriminalForm" onsubmit="submitCriminal(event)">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Full Name *</label>
+          <input class="form-control" name="name" required placeholder="e.g. Rajan Kumar">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Alias / Nickname</label>
+          <input class="form-control" name="alias" placeholder="e.g. Raja Bhai">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Age</label>
+          <input class="form-control" name="age" type="number" min="0" max="120" placeholder="32">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Gender</label>
+          <select class="form-control" name="gender">
+            <option>Unknown</option><option>Male</option><option>Female</option><option>Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">FIR Number</label>
+          <input class="form-control" name="fir_number" placeholder="FIR-2024-001" class="mono">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nationality</label>
+          <input class="form-control" name="nationality" placeholder="Indian">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Threat Level</label>
+          <select class="form-control" name="threat_level">
+            <option>Low</option><option selected>Medium</option><option>High</option><option>Critical</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Case Status</label>
+          <select class="form-control" name="case_status">
+            <option selected>Active</option><option>Wanted</option><option>Arrested</option><option>Closed</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Crime History</label>
+        <textarea class="form-control" name="crime_history" rows="3" placeholder="Describe criminal history, offenses, prior convictions…"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Last Known Location</label>
+        <input class="form-control" name="last_seen_location" placeholder="e.g. Tambaram, Chennai">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Additional Notes</label>
+        <textarea class="form-control" name="notes" rows="2" placeholder="Physical description, associates, vehicle, etc."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Criminal Photo (for face recognition)</label>
+        <div class="photo-drop" id="criminalPhotoDrop">
+          <input type="file" id="criminalPhoto" name="photo" accept="image/*" onchange="previewCriminalPhoto(this)">
+          <span class="material-icons-round upload-icon">face</span>
+          <p><strong>Upload face photo</strong> — clear frontal image for best recognition</p>
+        </div>
+        <img id="criminalPhotoPreview" style="display:none;width:80px;height:80px;border-radius:10px;object-fit:cover;margin-top:10px">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('addCriminalModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="submitCriminalBtn">
+          <span class="material-icons-round">save</span>Register Criminal
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- View/Edit Modal -->
+<div class="modal-overlay" id="viewCriminalModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Criminal Record</h2>
+      <button class="modal-close" onclick="closeModal('viewCriminalModal')"><span class="material-icons-round">close</span></button>
+    </div>
+    <div id="viewCriminalBody"></div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="/static/js/auth.js"></script>
+<script src="/static/js/api.js"></script>
+<script>
+  let allCriminals = [];
+  let currentFilter = 'all';
+  let currentView = 'grid';
+
+  async function loadCriminals() {
+    try {
+      allCriminals = await API.criminals();
+      document.getElementById('dbSummary').textContent = `${allCriminals.length} records in database`;
+      renderCriminals(allCriminals);
+    } catch(e) { Toast.error('Failed to load criminals: ' + e.message); }
+  }
+
+  function setFilter(val, btn) {
+    currentFilter = val;
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    filterCriminals();
+  }
+
+  function filterCriminals() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    let filtered = allCriminals;
+    if (currentFilter !== 'all') filtered = filtered.filter(c => c.threat_level === currentFilter);
+    if (search) filtered = filtered.filter(c =>
+      (c.name||'').toLowerCase().includes(search) ||
+      (c.fir_number||'').toLowerCase().includes(search) ||
+      (c.alias||'').toLowerCase().includes(search)
+    );
+    renderCriminals(filtered);
+  }
+
+  function setView(view) {
+    currentView = view;
+    document.getElementById('gridViewBtn').classList.toggle('active', view === 'grid');
+    document.getElementById('listViewBtn').classList.toggle('active', view === 'list');
+    document.getElementById('criminalsGrid').style.display = view === 'grid' ? 'grid' : 'none';
+    document.getElementById('criminalsTable').style.display = view === 'list' ? 'block' : 'none';
+  }
+
+  function renderCriminals(list) {
+    renderGrid(list);
+    renderTable(list);
+  }
+
+  function renderGrid(list) {
+    const el = document.getElementById('criminalsGrid');
+    if (!list.length) {
+      el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><span class="material-icons-round">person_search</span><h3>No Records Found</h3><p>Add a criminal or adjust your filters</p></div>';
+      return;
+    }
+    el.innerHTML = list.map(c => `
+      <div class="criminal-card threat-${(c.threat_level||'').toLowerCase()}" onclick="viewCriminal(${c.id})">
+        <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:14px">
+          ${c.image_path
+            ? `<img src="${c.image_path}" class="criminal-avatar-lg" onerror="this.outerHTML='<div class=\\'criminal-avatar-placeholder-lg\\'><span class=\\'material-icons-round\\'>person</span></div>'">`
+            : `<div class="criminal-avatar-placeholder-lg"><span class="material-icons-round">person</span></div>`}
+          <div style="flex:1;min-width:0">
+            <p style="font-size:15px;font-weight:700;margin-bottom:4px">${c.name}</p>
+            ${c.alias ? `<p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">"${c.alias}"</p>` : ''}
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              ${threatBadge(c.threat_level)}
+              ${statusBadge(c.case_status)}
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;font-size:12px">
+          <div style="display:flex;justify-content:space-between">
+            <span class="text-muted">FIR Number</span>
+            <span class="mono">${c.fir_number || '—'}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span class="text-muted">Last Seen</span>
+            <span class="truncate" style="max-width:140px;text-align:right">${c.last_seen_location || '—'}</span>
+          </div>
+          ${c.crime_history ? `<p style="color:var(--text-muted);font-size:11px;margin-top:6px;padding-top:10px;border-top:1px solid var(--border)" class="truncate">${c.crime_history}</p>` : ''}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="event.stopPropagation();viewCriminal(${c.id})">
+            <span class="material-icons-round">visibility</span>View
+          </button>
+          <button class="btn btn-danger btn-sm btn-icon" onclick="event.stopPropagation();deleteCriminal(${c.id},'${c.name}')">
+            <span class="material-icons-round">delete</span>
+          </button>
+        </div>
+      </div>`).join('');
+  }
+
+  function renderTable(list) {
+    const tbody = document.getElementById('criminalsTableBody');
+    if (!list.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty-state" style="padding:40px;text-align:center;color:var(--text-muted)">No records found</td></tr>'; return; }
+    tbody.innerHTML = list.map(c => `
+      <tr onclick="viewCriminal(${c.id})" style="cursor:pointer">
+        <td>${c.image_path ? `<img src="${c.image_path}" class="criminal-avatar" onerror="this.style.display='none'">` : `<div class="criminal-avatar-placeholder"><span class="material-icons-round" style="font-size:16px">person</span></div>`}</td>
+        <td>
+          <p style="font-weight:600">${c.name}</p>
+          ${c.alias ? `<p style="font-size:11px;color:var(--text-muted)">${c.alias}</p>` : ''}
+        </td>
+        <td class="mono td-muted">${c.fir_number || '—'}</td>
+        <td>${threatBadge(c.threat_level)}</td>
+        <td>${statusBadge(c.case_status)}</td>
+        <td class="truncate td-muted" style="max-width:180px">${c.crime_history || '—'}</td>
+        <td class="td-muted">${c.last_seen_location || '—'}</td>
+        <td>
+          <div class="flex gap-1">
+            <button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation();viewCriminal(${c.id})"><span class="material-icons-round">visibility</span></button>
+            <button class="btn btn-danger btn-sm btn-icon" onclick="event.stopPropagation();deleteCriminal(${c.id},'${c.name}')"><span class="material-icons-round">delete</span></button>
+          </div>
+        </td>
+      </tr>`).join('');
+  }
+
+  async function viewCriminal(id) {
+    try {
+      const c = await API.criminal(id);
+      document.getElementById('viewCriminalBody').innerHTML = `
+        <div style="display:flex;gap:20px;margin-bottom:20px">
+          ${c.image_path ? `<img src="${c.image_path}" style="width:100px;height:100px;border-radius:14px;object-fit:cover;border:2px solid var(--border)" onerror="this.style.display='none'">` : ''}
+          <div>
+            <h2 style="font-size:22px;font-weight:800">${c.name}</h2>
+            ${c.alias ? `<p style="color:var(--text-muted);margin-bottom:8px">"${c.alias}"</p>` : ''}
+            ${threatBadge(c.threat_level)} &nbsp; ${statusBadge(c.case_status)}
+          </div>
+        </div>
+        <div class="form-grid" style="gap:12px">
+          ${field('FIR Number', c.fir_number || '—', true)}
+          ${field('Age', c.age || '—')}
+          ${field('Gender', c.gender)}
+          ${field('Nationality', c.nationality || '—')}
+          ${field('Last Seen', c.last_seen_location || '—')}
+          ${field('Created', formatDate(c.created_at))}
+        </div>
+        ${c.crime_history ? `<div class="form-group mt-2"><div class="form-label">Crime History</div><div style="background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.15);padding:12px;border-radius:var(--radius-md);font-size:13px;line-height:1.7">${c.crime_history}</div></div>` : ''}
+        ${c.notes ? `<div class="form-group"><div class="form-label">Notes</div><p style="font-size:13px;color:var(--text-secondary)">${c.notes}</p></div>` : ''}
+        <div class="modal-footer">
+          <button class="btn btn-danger" onclick="deleteCriminal(${c.id},'${c.name}');closeModal('viewCriminalModal')"><span class="material-icons-round">delete</span>Delete Record</button>
+          <a href="/surveillance" class="btn btn-primary"><span class="material-icons-round">center_focus_strong</span>Run Face Scan</a>
+        </div>`;
+      openModal('viewCriminalModal');
+    } catch(e) { Toast.error(e.message); }
+  }
+
+  function field(label, value, mono = false) {
+    return `<div><p style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">${label}</p><p style="font-size:13px;font-weight:600${mono ? ';font-family:JetBrains Mono,monospace' : ''}">${value}</p></div>`;
+  }
+
+  function previewCriminalPhoto(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => { const img = document.getElementById('criminalPhotoPreview'); img.src = e.target.result; img.style.display = 'block'; };
+    reader.readAsDataURL(file);
+  }
+
+  async function submitCriminal(e) {
+    e.preventDefault();
+    const btn = document.getElementById('submitCriminalBtn');
+    btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Saving…';
+    try {
+      const fd = new FormData(e.target);
+      await API.postForm('/api/criminals', fd);
+      Toast.success('Criminal record created successfully');
+      closeModal('addCriminalModal');
+      e.target.reset();
+      document.getElementById('criminalPhotoPreview').style.display = 'none';
+      loadCriminals();
+    } catch(err) { Toast.error(err.message); }
+    finally { btn.disabled = false; btn.innerHTML = '<span class="material-icons-round">save</span>Register Criminal'; }
+  }
+
+  async function deleteCriminal(id, name) {
+    if (!confirm(`Delete record for "${name}"? This cannot be undone.`)) return;
+    try {
+      await API.deleteCriminal(id);
+      Toast.success(`${name}'s record deleted`);
+      loadCriminals();
+    } catch(e) { Toast.error(e.message); }
+  }
+
+  function exportCSV() {
+    const headers = ['ID','Name','Alias','FIR','Threat Level','Case Status','Last Seen','Nationality','Crime History'];
+    const rows = allCriminals.map(c => [c.id, c.name, c.alias||'', c.fir_number||'', c.threat_level, c.case_status, c.last_seen_location||'', c.nationality||'', (c.crime_history||'').replace(/,/g,' ')]);
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = 'cfcs_criminals_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+    Toast.success('CSV exported');
+  }
+
+  loadCriminals();
+</script>
+</body>
+</html>

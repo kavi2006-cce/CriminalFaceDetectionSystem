@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CFCS — Detection Logs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    .log-row:hover { background: rgba(255,255,255,0.025); cursor: pointer; }
+    .screenshot-thumb { width: 50px; height: 38px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border); cursor: pointer; }
+    .screenshot-modal img { max-width: 100%; border-radius: var(--radius-md); }
+    .filter-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+<div class="page-bg"></div>
+<div class="app-shell">
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-logo"><span class="material-icons-round">fingerprint</span></div>
+      <div class="brand-info"><h2>CFCS</h2><p>Intelligence Platform</p></div>
+    </div>
+    <div class="sys-status"><div class="dot"></div>SYSTEM ACTIVE</div>
+    <div class="nav-section">
+      <div class="nav-label">Main</div>
+      <a href="/dashboard" class="nav-item"><span class="material-icons-round nav-icon">dashboard</span>Dashboard</a>
+      <a href="/surveillance" class="nav-item"><span class="material-icons-round nav-icon">videocam</span>Live Surveillance</a>
+      <a href="/criminals" class="nav-item"><span class="material-icons-round nav-icon">person_search</span>Criminal Database</a>
+      <div class="nav-label">Operations</div>
+      <a href="/detections" class="nav-item"><span class="material-icons-round nav-icon">remove_red_eye</span>Detection Logs</a>
+      <a href="/analytics" class="nav-item"><span class="material-icons-round nav-icon">analytics</span>Analytics</a>
+      <a href="/alerts" class="nav-item"><span class="material-icons-round nav-icon">notifications_active</span>Alert Center</a>
+      <div class="nav-label">System</div>
+      <a href="/chat" class="nav-item"><span class="material-icons-round nav-icon">smart_toy</span>AI Assistant</a>
+      <a href="/settings" class="nav-item"><span class="material-icons-round nav-icon">settings</span>Settings</a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="admin-card">
+        <div class="admin-avatar"><span class="material-icons-round">admin_panel_settings</span></div>
+        <div class="admin-info"><p>Admin</p><span>System Administrator</span></div>
+      </div>
+      <button class="logout-btn" onclick="Auth.logout()"><span class="material-icons-round">logout</span>Secure Logout</button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="breadcrumb"><a href="/dashboard">Home</a><span>›</span><span>Detection Logs</span></div>
+        <h1>Detection Logs</h1>
+        <p id="logSummary">Loading logs…</p>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-ghost btn-sm" onclick="exportLogs()"><span class="material-icons-round">download</span>Export CSV</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadLogs()"><span class="material-icons-round">refresh</span>Refresh</button>
+      </div>
+    </div>
+
+    <!-- Mini stats -->
+    <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:22px">
+      <div class="stat-card" style="--card-accent:linear-gradient(90deg,#ef4444,#f97316)">
+        <div class="stat-icon" style="--icon-bg:rgba(239,68,68,0.12);--icon-color:#ef4444"><span class="material-icons-round">warning</span></div>
+        <div class="stat-body"><p>Criminal Matches</p><h3 id="sMatches">—</h3></div>
+      </div>
+      <div class="stat-card" style="--card-accent:linear-gradient(90deg,#f59e0b,#fbbf24)">
+        <div class="stat-icon" style="--icon-bg:rgba(245,158,11,0.12);--icon-color:#f59e0b"><span class="material-icons-round">help</span></div>
+        <div class="stat-body"><p>Unknown Persons</p><h3 id="sUnknown">—</h3></div>
+      </div>
+      <div class="stat-card" style="--card-accent:linear-gradient(90deg,#4facfe,#00f2fe)">
+        <div class="stat-icon" style="--icon-bg:rgba(79,172,254,0.12);--icon-color:#4facfe"><span class="material-icons-round">remove_red_eye</span></div>
+        <div class="stat-body"><p>Total Scans</p><h3 id="sTotal">—</h3></div>
+      </div>
+      <div class="stat-card" style="--card-accent:linear-gradient(90deg,#10b981,#34d399)">
+        <div class="stat-icon" style="--icon-bg:rgba(16,185,129,0.12);--icon-color:#10b981"><span class="material-icons-round">percent</span></div>
+        <div class="stat-body"><p>Avg Confidence</p><h3 id="sAvgConf">—</h3></div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-group">
+      <div class="search-bar">
+        <span class="material-icons-round">search</span>
+        <input type="text" id="searchInput" placeholder="Search name, location…" oninput="filterLogs()">
+      </div>
+      <select class="form-control" style="width:160px" id="threatFilter" onchange="filterLogs()">
+        <option value="">All Threats</option>
+        <option>Critical</option><option>High</option><option>Medium</option><option>Low</option><option>Unknown</option>
+      </select>
+      <select class="form-control" style="width:160px" id="typeFilter" onchange="filterLogs()">
+        <option value="">All Types</option>
+        <option value="criminal">Criminal Match</option>
+        <option value="unknown">Unknown Person</option>
+      </select>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrapper">
+      <div class="table-header">
+        <h3><span class="material-icons-round" style="vertical-align:middle;font-size:18px;margin-right:6px">remove_red_eye</span>Detection Records</h3>
+        <span id="filterCount" class="text-muted fs-12"></span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Screenshot</th>
+            <th>Person</th>
+            <th>Camera / Location</th>
+            <th>Confidence</th>
+            <th>Threat</th>
+            <th>Age / Gender</th>
+            <th>Time</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="logsBody">
+          <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- Screenshot preview modal -->
+<div class="modal-overlay" id="screenshotModal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <h2>Detection Screenshot</h2>
+      <button class="modal-close" onclick="closeModal('screenshotModal')"><span class="material-icons-round">close</span></button>
+    </div>
+    <div class="screenshot-modal" id="screenshotModalBody"></div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/static/js/auth.js"></script>
+<script src="/static/js/api.js"></script>
+<script>
+  let allLogs = [];
+
+  async function loadLogs() {
+    try {
+      allLogs = await API.detections('?limit=200');
+      const matches = allLogs.filter(l => !l.is_unknown).length;
+      const unknown = allLogs.filter(l => l.is_unknown).length;
+      const avgConf = allLogs.length ? Math.round(allLogs.reduce((s,l) => s + (l.confidence||0), 0) / allLogs.length) : 0;
+
+      document.getElementById('sMatches').textContent = matches;
+      document.getElementById('sUnknown').textContent = unknown;
+      document.getElementById('sTotal').textContent = allLogs.length;
+      document.getElementById('sAvgConf').textContent = avgConf + '%';
+      document.getElementById('logSummary').textContent = `${allLogs.length} detection events logged`;
+
+      filterLogs();
+    } catch(e) { Toast.error(e.message); }
+  }
+
+  function filterLogs() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const threat = document.getElementById('threatFilter').value;
+    const type = document.getElementById('typeFilter').value;
+
+    let filtered = allLogs;
+    if (search) filtered = filtered.filter(l =>
+      (l.criminal_name||'Unknown').toLowerCase().includes(search) ||
+      (l.camera_location||'').toLowerCase().includes(search)
+    );
+    if (threat) filtered = filtered.filter(l => l.threat_level === threat);
+    if (type === 'criminal') filtered = filtered.filter(l => !l.is_unknown);
+    if (type === 'unknown')  filtered = filtered.filter(l =>  l.is_unknown);
+
+    document.getElementById('filterCount').textContent = `Showing ${filtered.length} of ${allLogs.length}`;
+    renderLogs(filtered);
+  }
+
+  function renderLogs(list) {
+    const tbody = document.getElementById('logsBody');
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><span class="material-icons-round">remove_red_eye</span><h3>No Detections</h3><p>No detection logs match your filters</p></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(l => `
+      <tr class="log-row">
+        <td>
+          ${l.screenshot_path
+            ? `<img src="${l.screenshot_path}" class="screenshot-thumb" onclick="showScreenshot('${l.screenshot_path}')" onerror="this.outerHTML='<span class=\\'td-muted\\'>—</span>'">`
+            : '<span class="td-muted">—</span>'}
+        </td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:8px;height:8px;border-radius:50%;background:${l.is_unknown ? 'var(--warning)' : 'var(--danger)'};flex-shrink:0"></div>
+            <div>
+              <p style="font-weight:600;font-size:13px">${l.criminal_name || 'Unknown Person'}</p>
+              <p style="font-size:11px;color:var(--text-muted)">${l.is_unknown ? 'Unidentified' : 'Criminal Match'}</p>
+            </div>
+          </div>
+        </td>
+        <td class="td-muted">${l.camera_location || '—'}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:60px;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+              <div style="width:${Math.round(l.confidence)}%;height:100%;background:${l.confidence > 70 ? 'var(--danger)' : l.confidence > 40 ? 'var(--warning)' : 'var(--success)'}"></div>
+            </div>
+            <span style="font-size:12px;font-family:JetBrains Mono,monospace">${Math.round(l.confidence)}%</span>
+          </div>
+        </td>
+        <td>${threatBadge(l.threat_level)}</td>
+        <td class="td-muted" style="font-size:12px">${l.age_estimate ? `~${l.age_estimate}y` : '—'} ${l.gender_estimate ? `· ${l.gender_estimate}` : ''}</td>
+        <td class="td-muted mono" style="font-size:12px">${formatDate(l.detected_at)}</td>
+        <td>${statusBadge(l.status)}</td>
+      </tr>`).join('');
+  }
+
+  function showScreenshot(path) {
+    document.getElementById('screenshotModalBody').innerHTML = `<img src="${path}" alt="Detection screenshot">`;
+    openModal('screenshotModal');
+  }
+
+  function exportLogs() {
+    const headers = ['ID','Criminal Name','Camera Location','Confidence','Threat Level','Is Unknown','Age','Gender','Detected At','Status'];
+    const rows = allLogs.map(l => [l.id, l.criminal_name||'Unknown', l.camera_location||'', Math.round(l.confidence), l.threat_level, l.is_unknown?'Yes':'No', l.age_estimate||'', l.gender_estimate||'', l.detected_at, l.status]);
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = 'cfcs_detections_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+    Toast.success('CSV exported');
+  }
+
+  loadLogs();
+  setInterval(loadLogs, 15000); // auto-refresh every 15s
+</script>
+</body>
+</html>

@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CFCS — Settings & Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    .settings-layout { display: grid; grid-template-columns: 220px 1fr; gap: 24px; }
+    @media (max-width: 900px) { .settings-layout { grid-template-columns: 1fr; } }
+    .settings-nav { display: flex; flex-direction: column; gap: 4px; }
+    .settings-nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 14px; border-radius: var(--radius-md);
+      color: var(--text-secondary); font-size: 13.5px; font-weight: 500;
+      cursor: pointer; transition: var(--transition); border: 1px solid transparent;
+    }
+    .settings-nav-item:hover { background: var(--bg-card); color: var(--text-primary); }
+    .settings-nav-item.active { background: rgba(79,172,254,0.1); border-color: rgba(79,172,254,0.15); color: var(--primary); }
+    .settings-nav-item .material-icons-round { font-size: 18px; }
+
+    .settings-panel { display: none; }
+    .settings-panel.active { display: block; }
+
+    .settings-section { margin-bottom: 28px; }
+    .settings-section-title {
+      font-size: 13px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1.2px; color: var(--text-muted);
+      margin-bottom: 14px; padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .camera-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 16px; background: var(--bg-card);
+      border: 1px solid var(--border); border-radius: var(--radius-md);
+      margin-bottom: 8px;
+    }
+    .camera-row .cam-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(79,172,254,0.1); color: var(--primary); display: flex; align-items: center; justify-content: center; }
+    .camera-row .cam-info { flex: 1; }
+    .camera-row .cam-info p { font-size: 13px; font-weight: 600; }
+    .camera-row .cam-info span { font-size: 11px; color: var(--text-muted); }
+
+    .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background: rgba(255,255,255,0.1); border-radius: 24px;
+      transition: 0.3s;
+    }
+    .toggle-slider:before {
+      content: ''; position: absolute;
+      height: 18px; width: 18px; left: 3px; bottom: 3px;
+      background: white; border-radius: 50%; transition: 0.3s;
+    }
+    input:checked + .toggle-slider { background: var(--primary); }
+    input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+    .system-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .sys-info-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; }
+    .sys-info-item .label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 5px; }
+    .sys-info-item .value { font-size: 14px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body>
+<div class="page-bg"></div>
+<div class="app-shell">
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-logo"><span class="material-icons-round">fingerprint</span></div>
+      <div class="brand-info"><h2>CFCS</h2><p>Intelligence Platform</p></div>
+    </div>
+    <div class="sys-status"><div class="dot"></div>SYSTEM ACTIVE</div>
+    <div class="nav-section">
+      <div class="nav-label">Main</div>
+      <a href="/dashboard" class="nav-item"><span class="material-icons-round nav-icon">dashboard</span>Dashboard</a>
+      <a href="/surveillance" class="nav-item"><span class="material-icons-round nav-icon">videocam</span>Live Surveillance</a>
+      <a href="/criminals" class="nav-item"><span class="material-icons-round nav-icon">person_search</span>Criminal Database</a>
+      <div class="nav-label">Operations</div>
+      <a href="/detections" class="nav-item"><span class="material-icons-round nav-icon">remove_red_eye</span>Detection Logs</a>
+      <a href="/analytics" class="nav-item"><span class="material-icons-round nav-icon">analytics</span>Analytics</a>
+      <a href="/alerts" class="nav-item"><span class="material-icons-round nav-icon">notifications_active</span>Alert Center</a>
+      <div class="nav-label">System</div>
+      <a href="/chat" class="nav-item"><span class="material-icons-round nav-icon">smart_toy</span>AI Assistant</a>
+      <a href="/settings" class="nav-item"><span class="material-icons-round nav-icon">settings</span>Settings</a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="admin-card">
+        <div class="admin-avatar"><span class="material-icons-round">admin_panel_settings</span></div>
+        <div class="admin-info"><p>Admin</p><span>System Administrator</span></div>
+      </div>
+      <button class="logout-btn" onclick="Auth.logout()"><span class="material-icons-round">logout</span>Secure Logout</button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="breadcrumb"><a href="/dashboard">Home</a><span>›</span><span>Settings</span></div>
+        <h1>Settings & Admin Panel</h1>
+        <p>System configuration, camera management, and admin controls</p>
+      </div>
+    </div>
+
+    <div class="settings-layout">
+      <!-- Settings nav -->
+      <div>
+        <div class="card" style="padding:12px">
+          <div class="settings-nav">
+            <div class="settings-nav-item active" onclick="showPanel('cameras', this)">
+              <span class="material-icons-round">videocam</span>Camera Management
+            </div>
+            <div class="settings-nav-item" onclick="showPanel('system', this)">
+              <span class="material-icons-round">memory</span>System Status
+            </div>
+            <div class="settings-nav-item" onclick="showPanel('alerts-cfg', this)">
+              <span class="material-icons-round">notifications</span>Alert Configuration
+            </div>
+            <div class="settings-nav-item" onclick="showPanel('security', this)">
+              <span class="material-icons-round">security</span>Security & Access
+            </div>
+            <div class="settings-nav-item" onclick="showPanel('about', this)">
+              <span class="material-icons-round">info</span>About CFCS
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panels -->
+      <div>
+
+        <!-- Camera Management -->
+        <div class="settings-panel active card" id="panel-cameras">
+          <div class="settings-section-title">Camera Network</div>
+
+          <div class="settings-section">
+            <div id="cameraList">
+              <div class="empty-state"><span class="material-icons-round">videocam</span><p>Loading cameras…</p></div>
+            </div>
+            <button class="btn btn-primary mt-2" onclick="openModal('addCameraModal')">
+              <span class="material-icons-round">add</span>Add Camera
+            </button>
+          </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="settings-panel card" id="panel-system">
+          <div class="settings-section-title">System Information</div>
+          <div class="system-info-grid">
+            <div class="sys-info-item">
+              <div class="label">Platform</div>
+              <div class="value">CFCS v2.0</div>
+            </div>
+            <div class="sys-info-item">
+              <div class="label">Backend</div>
+              <div class="value">FastAPI + SQLite</div>
+            </div>
+            <div class="sys-info-item">
+              <div class="label">AI Engine</div>
+              <div class="value">OpenCV LBPH</div>
+            </div>
+            <div class="sys-info-item">
+              <div class="label">Status</div>
+              <div class="value" style="color:var(--success)">● ONLINE</div>
+            </div>
+            <div class="sys-info-item">
+              <div class="label">Criminals in DB</div>
+              <div class="value" id="sysCriminals">—</div>
+            </div>
+            <div class="sys-info-item">
+              <div class="label">Total Detections</div>
+              <div class="value" id="sysDetections">—</div>
+            </div>
+            <div class="sys-info-item">
+              <div class="label">Cameras Registered</div>
+              <div class="value" id="sysCameras">—</div>
+            </div>
+            <div class="sys-info-item">
+              <div class="label">Active Alerts</div>
+              <div class="value" id="sysAlerts">—</div>
+            </div>
+          </div>
+
+          <div class="settings-section-title mt-3">Health Check</div>
+          <div class="flex gap-2">
+            <button class="btn btn-ghost" onclick="checkHealth()">
+              <span class="material-icons-round">favorite</span>Run Health Check
+            </button>
+            <div id="healthResult" style="font-size:13px;color:var(--text-muted);align-self:center"></div>
+          </div>
+        </div>
+
+        <!-- Alert Configuration -->
+        <div class="settings-panel card" id="panel-alerts-cfg">
+          <div class="settings-section-title">Notification Settings</div>
+          <div class="settings-section" style="display:flex;flex-direction:column;gap:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md)">
+              <div>
+                <p style="font-size:14px;font-weight:600">Browser Notifications</p>
+                <p style="font-size:12px;color:var(--text-muted)">Show desktop alerts when a criminal is detected</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggleNotif" checked onchange="toggleNotifications(this)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md)">
+              <div>
+                <p style="font-size:14px;font-weight:600">Audio Alarm</p>
+                <p style="font-size:12px;color:var(--text-muted)">Play alarm sound on criminal detection</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggleAlarm" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md)">
+              <div>
+                <p style="font-size:14px;font-weight:600">Auto-Refresh Dashboard</p>
+                <p style="font-size:12px;color:var(--text-muted)">Refresh dashboard stats every 30 seconds</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-section-title mt-3">Confidence Threshold</div>
+          <div class="form-group" style="max-width:360px">
+            <label class="form-label">Minimum match confidence to trigger alert: <strong id="confValue">75%</strong></label>
+            <input type="range" min="50" max="99" value="75" style="width:100%;accent-color:var(--primary)"
+              oninput="document.getElementById('confValue').textContent=this.value+'%'">
+            <p style="font-size:11px;color:var(--text-muted);margin-top:6px">Lower = more detections (may include false positives). Higher = fewer, more certain matches.</p>
+          </div>
+        </div>
+
+        <!-- Security -->
+        <div class="settings-panel card" id="panel-security">
+          <div class="settings-section-title">Access Control</div>
+          <div class="form-group">
+            <label class="form-label">Current Admin Username</label>
+            <input class="form-control" value="admin" disabled style="font-family:'JetBrains Mono',monospace">
+          </div>
+          <div class="form-group" style="max-width:380px">
+            <label class="form-label">New Password</label>
+            <input class="form-control" type="password" id="newPassword" placeholder="Enter new password">
+          </div>
+          <div class="form-group" style="max-width:380px">
+            <label class="form-label">Confirm Password</label>
+            <input class="form-control" type="password" id="confirmPassword" placeholder="Confirm new password">
+          </div>
+          <button class="btn btn-primary" onclick="changePassword()">
+            <span class="material-icons-round">lock_reset</span>Update Password
+          </button>
+
+          <div class="settings-section-title mt-3">Session Management</div>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">JWT tokens expire after 30 minutes. Force logout removes the current token.</p>
+          <button class="btn btn-danger" onclick="Auth.logout()">
+            <span class="material-icons-round">logout</span>Force Logout (End Session)
+          </button>
+        </div>
+
+        <!-- About -->
+        <div class="settings-panel card" id="panel-about">
+          <div style="text-align:center;padding:20px 0">
+            <div style="width:72px;height:72px;margin:0 auto 16px;background:linear-gradient(135deg,#4facfe,#00f2fe);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:36px;color:#fff;box-shadow:0 8px 24px rgba(79,172,254,0.4)">
+              <span class="material-icons-round">fingerprint</span>
+            </div>
+            <h2 style="font-size:26px;font-weight:800;margin-bottom:6px">CFCS v2.0</h2>
+            <p style="color:var(--text-muted);margin-bottom:20px">Criminal Face Detection & Smart Surveillance System</p>
+          </div>
+          <div class="system-info-grid">
+            <div class="sys-info-item"><div class="label">Version</div><div class="value">2.0.0</div></div>
+            <div class="sys-info-item"><div class="label">Backend</div><div class="value">FastAPI</div></div>
+            <div class="sys-info-item"><div class="label">Database</div><div class="value">SQLite</div></div>
+            <div class="sys-info-item"><div class="label">Face AI</div><div class="value">OpenCV LBPH</div></div>
+            <div class="sys-info-item"><div class="label">Frontend</div><div class="value">HTML5 + Vanilla JS</div></div>
+            <div class="sys-info-item"><div class="label">Charts</div><div class="value">Chart.js v4</div></div>
+            <div class="sys-info-item"><div class="label">Maps</div><div class="value">Leaflet.js</div></div>
+            <div class="sys-info-item"><div class="label">License</div><div class="value">MIT</div></div>
+          </div>
+          <div style="margin-top:24px;padding:16px;background:rgba(79,172,254,0.06);border:1px solid rgba(79,172,254,0.12);border-radius:var(--radius-md)">
+            <p style="font-size:13px;color:var(--text-secondary);line-height:1.7">
+              CFCS is an AI-powered surveillance intelligence platform designed for law enforcement, smart cities, and institutional security. Built for real-world deployment with offline-capable face recognition and a fully responsive web interface.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Add Camera Modal -->
+<div class="modal-overlay" id="addCameraModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h2><span class="material-icons-round" style="vertical-align:middle;margin-right:8px;color:var(--primary)">videocam</span>Add Camera</h2>
+      <button class="modal-close" onclick="closeModal('addCameraModal')"><span class="material-icons-round">close</span></button>
+    </div>
+    <form id="addCameraForm" onsubmit="submitCamera(event)">
+      <div class="form-group">
+        <label class="form-label">Camera Name *</label>
+        <input class="form-control" name="name" required placeholder="e.g. Main Gate CAM-01">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Location *</label>
+        <input class="form-control" name="location" required placeholder="e.g. North Gate, Building A">
+      </div>
+      <div class="form-group">
+        <label class="form-label">IP Address / Stream URL</label>
+        <input class="form-control" name="ip_address" placeholder="e.g. 192.168.1.100" class="mono">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Camera Type</label>
+        <select class="form-control" name="camera_type">
+          <option value="IP">IP Camera</option>
+          <option value="USB">USB Camera</option>
+          <option value="RTSP">RTSP Stream</option>
+          <option value="Webcam">Webcam</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('addCameraModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="addCameraBtn">
+          <span class="material-icons-round">add</span>Add Camera
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/static/js/auth.js"></script>
+<script src="/static/js/api.js"></script>
+<script>
+  function showPanel(id, item) {
+    document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.settings-nav-item').forEach(i => i.classList.remove('active'));
+    document.getElementById('panel-' + id).classList.add('active');
+    item.classList.add('active');
+  }
+
+  async function loadCameras() {
+    try {
+      const cameras = await API.cameras();
+      const el = document.getElementById('cameraList');
+      if (!cameras.length) {
+        el.innerHTML = '<div class="empty-state"><span class="material-icons-round">videocam_off</span><h3>No Cameras</h3><p>Add your first camera to start monitoring</p></div>';
+        return;
+      }
+      el.innerHTML = cameras.map(c => `
+        <div class="camera-row">
+          <div class="cam-icon"><span class="material-icons-round">videocam</span></div>
+          <div class="cam-info">
+            <p>${c.name}</p>
+            <span>${c.location} · ${c.camera_type} ${c.ip_address ? '· ' + c.ip_address : ''}</span>
+          </div>
+          ${statusBadge(c.status)}
+          <button class="btn btn-danger btn-sm btn-icon" onclick="deleteCamera(${c.id})">
+            <span class="material-icons-round">delete</span>
+          </button>
+        </div>`).join('');
+    } catch {}
+  }
+
+  async function loadSystemStats() {
+    try {
+      const s = await API.stats();
+      document.getElementById('sysCriminals').textContent = s.total_criminals;
+      document.getElementById('sysDetections').textContent = s.detections_today + ' today';
+      document.getElementById('sysCameras').textContent = s.cameras_online + '/' + s.total_cameras + ' online';
+      document.getElementById('sysAlerts').textContent = s.active_alerts;
+    } catch {}
+  }
+
+  async function checkHealth() {
+    const el = document.getElementById('healthResult');
+    el.textContent = 'Checking…';
+    try {
+      const res = await fetch('/health', { headers: Auth.authHeadersOnly() });
+      const data = await res.json();
+      el.innerHTML = `<span style="color:var(--success)">● System healthy — ${data.service} · ${new Date(data.timestamp).toLocaleTimeString()}</span>`;
+    } catch {
+      el.innerHTML = '<span style="color:var(--danger)">● Health check failed</span>';
+    }
+  }
+
+  async function submitCamera(e) {
+    e.preventDefault();
+    const btn = document.getElementById('addCameraBtn');
+    btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Adding…';
+    try {
+      await API.postForm('/api/cameras', new FormData(e.target));
+      Toast.success('Camera added successfully');
+      closeModal('addCameraModal');
+      e.target.reset();
+      loadCameras();
+    } catch(err) { Toast.error(err.message); }
+    finally { btn.disabled = false; btn.innerHTML = '<span class="material-icons-round">add</span>Add Camera'; }
+  }
+
+  async function deleteCamera(id) {
+    if (!confirm('Remove this camera from the network?')) return;
+    try { await API.delete(`/api/cameras/${id}`); Toast.success('Camera removed'); loadCameras(); }
+    catch(e) { Toast.error(e.message); }
+  }
+
+  function changePassword() {
+    const p1 = document.getElementById('newPassword').value;
+    const p2 = document.getElementById('confirmPassword').value;
+    if (!p1) { Toast.warning('Enter a new password'); return; }
+    if (p1 !== p2) { Toast.error('Passwords do not match'); return; }
+    Toast.info('Password change requires server restart in this build. Contact system admin.');
+  }
+
+  async function toggleNotifications(el) {
+    if (el.checked && 'Notification' in window) {
+      const p = await Notification.requestPermission();
+      if (p !== 'granted') { el.checked = false; Toast.warning('Notification permission denied'); }
+      else Toast.success('Browser notifications enabled');
+    }
+  }
+
+  loadCameras(); loadSystemStats();
+</script>
+</body>
+</html>

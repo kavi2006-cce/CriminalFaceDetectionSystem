@@ -1,0 +1,35 @@
+name: Vercel Deploy
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare Vercel-safe requirements
+        run: |
+          cat > requirements-vercel.txt << 'EOF'
+          fastapi>=0.110.0
+          uvicorn[standard]>=0.30.0
+          sqlalchemy>=2.0.0
+          passlib[bcrypt]>=1.9.0
+          python-multipart>=0.0.20
+          jinja2>=3.1.0
+          aiofiles>=24.0.0
+          python-jose[cryptography]>=3.9.0
+          EOF
+          mv requirements-vercel.txt requirements.txt
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v20
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+          working-directory: ./

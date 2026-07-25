@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CFCS — AI Criminal Face Detection & Intelligent Surveillance System</title>
+  <meta name="description" content="Next-Gen AI Powered Criminal Face Detection, Real-time CCTV Scanning & Law Enforcement Intelligence System">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #050816;
+      --bg-card: rgba(13, 22, 45, 0.65);
+      --bg-card-hover: rgba(18, 30, 60, 0.85);
+      --primary: #3b82f6;
+      --accent: #06b6d4;
+      --secondary: #8b5cf6;
+      --danger: #ef4444;
+      --success: #10b981;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-glow: rgba(6, 182, 212, 0.25);
+      --glass-border: rgba(255, 255, 255, 0.08);
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    /* Ambient Background Canvas */
+    #heroCanvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* Floating Header */
+    header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 18px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(5, 8, 22, 0.8);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--glass-border);
+      transition: all 0.3s ease;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .brand-icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff;
+      font-size: 24px;
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.5);
+    }
+
+    .brand-text {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #fff;
+    }
+
+    .brand-text span {
+      background: linear-gradient(90deg, var(--accent), var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+
+    nav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    nav a:hover { color: #fff; }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .btn {
+      padding: 10px 24px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-glass {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--glass-border);
+      color: #fff;
+      backdrop-filter: blur(10px);
+    }
+
+    .btn-glass:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(6, 182, 212, 0.6);
+    }
+
+    /* Hero Section */
+    .hero-section {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding: 140px 60px 80px;
+      max-width: 1400px;
+      margin: 0 auto;
+      gap: 60px;
+      z-index: 2;
+    }
+
+    .hero-left {
+      flex: 1.1;
+    }
+
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      border-radius: 20px;
+      font-size: 13px;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+
+    .pulse-dot {
+      width: 8px; height: 8px;
+      background-color: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--accent);
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.7); }
+      70% { transform: scale(1.2); box-shadow: 0 0 0 10px rgba(6, 182, 212, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); }
+    }
+
+    .hero-title {
+      font-size: 56px;
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: -1.5px;
+      margin-bottom: 24px;
+    }
+
+    .hero-title span.grad {
+      background: linear-gradient(135deg, #60a5fa, #06b6d4, #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-desc {
+      font-size: 18px;
+      color: var(--text-muted);
+      margin-bottom: 36px;
+      max-width: 620px;
+    }
+
+    .hero-cta {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 50px;
+    }
+
+    .hero-stats-row {
+      display: flex;
+      gap: 40px;
+      border-top: 1px solid var(--glass-border);
+      padding-top: 30px;
+    }
+
+    .hero-stat-item .val {
+      font-size: 32px;
+      font-weight: 800;
+      color: #fff;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .hero-stat-item .val span { color: var(--accent); }
+
+    .hero-stat-item .lbl {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 4px;
+    }
+
+    /* Hero Right 3D Scanning Visual */
+    .hero-right {
+      flex: 0.9;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .scanner-card {
+      position: relative;
+      width: 100%;
+      max-width: 500px;
+      height: 520px;
+      background: rgba(13, 22, 45, 0.4);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      border-radius: 24px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 0 50px rgba(6, 182, 212, 0.15);
+      overflow: hidden;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .scanner-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+      border-bottom: 1px solid var(--glass-border);
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+    }
+
+    .scanner-viewport {
+      position: relative;
+      flex: 1;
+      border-radius: 16px;
+      overflow: hidden;
+      background: radial-gradient(circle at center, #0f1c3f 0%, #060d1a 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .face-target {
+      position: relative;
+      width: 220px;
+      height: 260px;
+      border: 2px dashed rgba(6, 182, 212, 0.6);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .scan-line {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      box-shadow: 0 0 15px var(--accent);
+      animation: scanAnim 2.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes scanAnim {
+      0% { top: 0; }
+      100% { top: 100%; }
+    }
+
+    .target-corner {
+      position: absolute;
+      width: 16px; height: 16px;
+      border-color: var(--accent);
+      border-style: solid;
+    }
+    .tl { top: -2px; left: -2px; border-width: 3px 0 0 3px; }
+    .tr { top: -2px; right: -2px; border-width: 3px 3px 0 0; }
+    .bl { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; }
+    .br { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; }
+
+    .scanner-hud {
+      position: absolute;
+      bottom: 16px; left: 16px; right: 16px;
+      background: rgba(5, 8, 22, 0.85);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      padding: 12px 16px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hud-info .title { font-size: 13px; font-weight: 700; color: #fff; }
+    .hud-info .sub { font-size: 11px; color: var(--text-muted); }
+    .hud-match {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--success);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Section Global */
+    section {
+      padding: 100px 60px;
+      max-width: 1400px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 2;
+    }
+
+    .section-header {
+      text-align: center;
+      max-width: 700px;
+      margin: 0 auto 60px;
+    }
+
+    .section-title {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+
+    .section-title span {
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .section-subtitle {
+      font-size: 16px;
+      color: var(--text-muted);
+    }
+
+    /* Features Grid */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 32px;
+      backdrop-filter: blur(12px);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-6px);
+      background: var(--bg-card-hover);
+      border-color: rgba(6, 182, 212, 0.4);
+      box-shadow: 0 12px 40px rgba(6, 182, 212, 0.15);
+    }
+
+    .feature-icon {
+      width: 54px; height: 54px;
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent);
+      font-size: 28px;
+      margin-bottom: 20px;
+    }
+
+    .feature-card h3 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+
+    .feature-card p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+
+    /* Tech Stack Pill Matrix */
+    .tech-matrix {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: center;
+      margin-top: 40px;
+    }
+
+    .tech-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 24px;
+      background: rgba(13, 22, 45, 0.8);
+      border: 1px solid var(--glass-border);
+      border-radius: 30px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      transition: all 0.3s;
+    }
+
+    .tech-pill:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+      transform: scale(1.05);
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--glass-border);
+      padding: 60px;
+      background: rgba(3, 5, 14, 0.9);
+      position: relative;
+      z-index: 2;
+    }
+
+    .footer-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-copy {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Particle / Grid Canvas -->
+  <canvas id="heroCanvas"></canvas>
+
+  <!-- Navigation Header -->
+  <header>
+    <a href="/" class="brand">
+      <div class="brand-icon">
+        <span class="material-icons-round">biotech</span>
+      </div>
+      <div class="brand-text">CFCS <span>AI</span></div>
+    </a>
+
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#technology">Tech Stack</a>
+      <a href="/surveillance">Live CCTV</a>
+      <a href="/criminals">Criminal DB</a>
+      <a href="/analytics">Analytics</a>
+    </nav>
+
+    <div class="header-actions">
+      <a href="/login" class="btn btn-glass">Officer Login</a>
+      <a href="/dashboard" class="btn btn-primary">
+        <span class="material-icons-round" style="font-size: 18px;">dashboard</span> Launch Portal
+      </a>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <div class="hero-section">
+    <div class="hero-left">
+      <div class="badge-status">
+        <div class="pulse-dot"></div> AI SURVEILLANCE ENGINE v2.0 ACTIVE
+      </div>
+      <h1 class="hero-title">
+        Real-Time AI <br>
+        <span class="grad">Criminal Recognition</span> & Intelligence
+      </h1>
+      <p class="hero-desc">
+        Enterprise-grade biometric surveillance platform designed for law enforcement and smart city security. Detect, identify, and track wanted individuals instantly from multi-camera feeds with military-grade precision.
+      </p>
+      
+      <div class="hero-cta">
+        <a href="/dashboard" class="btn btn-primary" style="padding: 14px 32px; font-size: 16px;">
+          <span class="material-icons-round">rocket_launch</span> Open Command Center
+        </a>
+        <a href="/surveillance" class="btn btn-glass" style="padding: 14px 28px; font-size: 16px;">
+          <span class="material-icons-round">videocam</span> View Live Scanning
+        </a>
+      </div>
+
+      <div class="hero-stats-row">
+        <div class="hero-stat-item">
+          <div class="val" id="statAccuracy">99.4<span>%</span></div>
+          <div class="lbl">Match Accuracy</div>
+        </div>
+        <div class="hero-stat-item">
+          <div class="val" id="statLatency">&lt;45<span>ms</span></div>
+          <div class="lbl">Detection Speed</div>
+        </div>
+        <div class="hero-stat-item">
+          <div class="val" id="statFPS">60<span>+</span></div>
+          <div class="lbl">FPS Multi-Stream</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <div class="scanner-card">
+        <div class="scanner-header">
+          <span>SYS.CAM_01 // LIVE_FEED</span>
+          <span>FPS: 59.8</span>
+        </div>
+        <div class="scanner-viewport">
+          <div class="face-target">
+            <div class="scan-line"></div>
+            <div class="target-corner tl"></div>
+            <div class="target-corner tr"></div>
+            <div class="target-corner bl"></div>
+            <div class="target-corner br"></div>
+            <span class="material-icons-round" style="font-size: 90px; color: rgba(6, 182, 212, 0.4);">face</span>
+          </div>
+        </div>
+        <div class="scanner-hud">
+          <div class="hud-info">
+            <div class="title">TARGET MATCH IDENTIFIED</div>
+            <div class="sub">CRIMINAL ID #1042 — CRITICAL THREAT</div>
+          </div>
+          <div class="hud-match">98.7% CONF</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Features Section -->
+  <section id="features">
+    <div class="section-header">
+      <h2 class="section-title">State-of-the-Art <span>Capabilities</span></h2>
+      <p class="section-subtitle">Architected for real-world high-throughput law enforcement workflows.</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon"><span class="material-icons-round">remove_red_eye</span></div>
+        <h3>Multi-Stream Face Recognition</h3>
+        <p>Simultaneous face extraction and database matching across dozens of RTSP CCTV camera feeds in real time.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon"><span class="material-icons-round">notifications_active</span></div>
+        <h3>Instant Police Alerts</h3>
+        <p>Automated siren alerts, emergency flash visualizer, and instant dispatch log creation upon positive match.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon"><span class="material-icons-round">map</span></div>
+        <h3>Geospatial Heatmaps</h3>
+        <p>Interactive spatial mapping displaying criminal last-seen coordinates and regional detection density.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon"><span class="material-icons-round">smart_toy</span></div>
+        <h3>ARIA AI Assistant</h3>
+        <p>Query criminal databases using natural language commands, retrieve FIR profiles, and summarize threat levels.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon"><span class="material-icons-round">shield</span></div>
+        <h3>Role-Based Access Control</h3>
+        <p>Strict admin, police officer, investigator, and operator permission hierarchy backed by JWT authentication.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon"><span class="material-icons-round">description</span></div>
+        <h3>Automated Evidence Reports</h3>
+        <p>One-click generation of court-ready PDF evidence logs including detection timestamps and confidence metrics.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Technology Section -->
+  <section id="technology" style="background: rgba(6, 13, 28, 0.5); border-y: 1px solid var(--glass-border);">
+    <div class="section-header">
+      <h2 class="section-title">Powered by <span>Modern AI & Web Infrastructure</span></h2>
+      <p class="section-subtitle">High-performance tech stack built for zero-downtime scalability.</p>
+    </div>
+
+    <div class="tech-matrix">
+      <div class="tech-pill"><span class="material-icons-round" style="color:#60a5fa">code</span> Python FastAPI</div>
+      <div class="tech-pill"><span class="material-icons-round" style="color:#06b6d4">center_focus_strong</span> OpenCV LBPH & Haar</div>
+      <div class="tech-pill"><span class="material-icons-round" style="color:#a855f7">psychology</span> DeepFace & PyTorch</div>
+      <div class="tech-pill"><span class="material-icons-round" style="color:#34d399">storage</span> SQLite & SQLAlchemy</div>
+      <div class="tech-pill"><span class="material-icons-round" style="color:#f59e0b">security</span> JWT & OAuth2</div>
+      <div class="tech-pill"><span class="material-icons-round" style="color:#ec4899">pie_chart</span> Chart.js Analytics</div>
+      <div class="tech-pill"><span class="material-icons-round" style="color:#3b82f6">place</span> Leaflet Geospatial</div>
+      <div class="tech-pill"><span class="material-icons-round" style="color:#64748b">dns</span> Docker Containerized</div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-content">
+      <div class="brand">
+        <div class="brand-icon"><span class="material-icons-round">biotech</span></div>
+        <div class="brand-text">CFCS <span>Intelligence Platform</span></div>
+      </div>
+      <div class="footer-copy">
+        &copy; 2026 Criminal Face Detection System. Enterprise Law Enforcement Tech.
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Particle Canvas Animation
+    const canvas = document.getElementById('heroCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    const particles = Array.from({ length: 65 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      vx: (Math.random() - 0.5) * 0.6,
+      vy: (Math.random() - 0.5) * 0.6,
+      radius: Math.random() * 2 + 1
+    }));
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'rgba(6, 182, 212, 0.4)';
+      ctx.strokeStyle = 'rgba(59, 130, 246, 0.08)';
+
+      particles.forEach((p, i) => {
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const dist = Math.hypot(p.x - p2.x, p.y - p2.y);
+          if (dist < 140) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
+        }
+      });
+
+      requestAnimationFrame(animate);
+    }
+    animate();
+  </script>
+</body>
+</html>

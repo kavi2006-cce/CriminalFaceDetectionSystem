@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CFCS — Live Surveillance</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    .surveillance-layout { display: grid; grid-template-columns: 1fr 360px; gap: 22px; }
+    @media (max-width: 1100px) { .surveillance-layout { grid-template-columns: 1fr; } }
+
+    /* Camera feed */
+    .camera-viewport {
+      background: #000;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      position: relative;
+      aspect-ratio: 16/9;
+    }
+    .camera-viewport video, .camera-viewport canvas {
+      width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;
+    }
+    .camera-viewport canvas { z-index: 2; pointer-events: none; }
+    .camera-hud {
+      position: absolute; inset: 0; z-index: 3; pointer-events: none;
+      padding: 14px 18px;
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .hud-top { display: flex; justify-content: space-between; align-items: flex-start; }
+    .hud-bottom { display: flex; justify-content: space-between; align-items: flex-end; }
+    .hud-badge {
+      padding: 4px 10px; border-radius: 6px;
+      font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+      background: rgba(0,0,0,0.6); backdrop-filter: blur(6px);
+      color: #fff; display: flex; align-items: center; gap: 6px;
+    }
+    .rec-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; animation: blink 1s infinite; }
+    .fps-counter { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #10b981; }
+    .detection-overlay {
+      position: absolute; z-index: 4; pointer-events: none;
+      border: 2px solid; border-radius: 4px;
+      transition: all 0.2s;
+    }
+    .detection-overlay.criminal { border-color: #ef4444; }
+    .detection-overlay.unknown  { border-color: #f59e0b; }
+    .detection-label {
+      position: absolute; top: -26px; left: -1px;
+      padding: 2px 8px; border-radius: 4px;
+      font-size: 10px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
+    }
+    .detection-label.criminal { background: #ef4444; color: #fff; }
+    .detection-label.unknown  { background: #f59e0b; color: #000; }
+
+    /* Scan line */
+    .camera-viewport::after {
+      content: '';
+      position: absolute; left: 0; right: 0; height: 2px; z-index: 5; pointer-events: none;
+      background: linear-gradient(90deg, transparent, rgba(79,172,254,0.6), transparent);
+      animation: scanLine 3s linear infinite;
+    }
+    @keyframes scanLine { 0%{top:0%} 100%{top:100%} }
+
+    /* Controls */
+    .cam-controls {
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+      padding: 14px 0;
+    }
+    .cam-indicator {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--text-muted);
+    }
+    .cam-indicator .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); animation: blink 1.5s infinite; }
+
+    /* Upload panel */
+    .detection-result {
+      padding: 16px; border-radius: var(--radius-md);
+      margin-top: 14px;
+    }
+    .detection-result.match {
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.2);
+    }
+    .detection-result.no-match {
+      background: rgba(16,185,129,0.08);
+      border: 1px solid rgba(16,185,129,0.2);
+    }
+    .result-criminal {
+      display: flex; gap: 14px; align-items: flex-start; margin-top: 12px;
+    }
+    .result-criminal img {
+      width: 70px; height: 70px; border-radius: 10px; object-fit: cover;
+      border: 2px solid rgba(239,68,68,0.4);
+    }
+    .result-field { margin-bottom: 6px; }
+    .result-field span { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; display: block; }
+    .result-field p { font-size: 13px; font-weight: 600; }
+
+    /* Alert popup */
+    .alert-popup {
+      position: fixed; top: 80px; right: 20px; z-index: 9000;
+      background: rgba(8,15,30,0.97); backdrop-filter: blur(16px);
+      border: 2px solid #ef4444; border-radius: var(--radius-lg);
+      padding: 20px 24px; max-width: 340px;
+      animation: alertSlide 0.4s ease;
+      box-shadow: 0 0 40px rgba(239,68,68,0.3);
+    }
+    @keyframes alertSlide { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+    .alert-popup h3 { color: #ef4444; font-size: 16px; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+<div class="page-bg"></div>
+<div class="app-shell">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-logo"><span class="material-icons-round">fingerprint</span></div>
+      <div class="brand-info"><h2>CFCS</h2><p>Intelligence Platform</p></div>
+    </div>
+    <div class="sys-status"><div class="dot"></div>SYSTEM ACTIVE</div>
+    <div class="nav-section">
+      <div class="nav-label">Main</div>
+      <a href="/dashboard" class="nav-item"><span class="material-icons-round nav-icon">dashboard</span>Dashboard</a>
+      <a href="/surveillance" class="nav-item"><span class="material-icons-round nav-icon">videocam</span>Live Surveillance</a>
+      <a href="/criminals" class="nav-item"><span class="material-icons-round nav-icon">person_search</span>Criminal Database</a>
+      <div class="nav-label">Operations</div>
+      <a href="/detections" class="nav-item"><span class="material-icons-round nav-icon">remove_red_eye</span>Detection Logs</a>
+      <a href="/analytics" class="nav-item"><span class="material-icons-round nav-icon">analytics</span>Analytics</a>
+      <a href="/alerts" class="nav-item"><span class="material-icons-round nav-icon">notifications_active</span>Alert Center<span class="nav-badge" id="alertBadge" style="display:none">!</span></a>
+      <div class="nav-label">System</div>
+      <a href="/chat" class="nav-item"><span class="material-icons-round nav-icon">smart_toy</span>AI Assistant</a>
+      <a href="/settings" class="nav-item"><span class="material-icons-round nav-icon">settings</span>Settings</a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="admin-card">
+        <div class="admin-avatar"><span class="material-icons-round">admin_panel_settings</span></div>
+        <div class="admin-info"><p>Admin</p><span>System Administrator</span></div>
+      </div>
+      <button class="logout-btn" onclick="Auth.logout()"><span class="material-icons-round">logout</span>Secure Logout</button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="breadcrumb"><a href="/dashboard">Home</a><span>›</span><span>Live Surveillance</span></div>
+        <h1>Live Surveillance</h1>
+        <p>Real-time face detection & criminal matching</p>
+      </div>
+      <div class="flex gap-2">
+        <div class="cam-indicator"><div class="dot"></div>Live Feed Active</div>
+        <button class="btn btn-primary" id="captureBtn" onclick="captureAndAnalyze()">
+          <span class="material-icons-round">center_focus_strong</span> Scan Face
+        </button>
+      </div>
+    </div>
+
+    <div class="surveillance-layout">
+      <!-- Left: Camera feed -->
+      <div>
+        <div class="camera-viewport" id="cameraViewport">
+          <video id="liveVideo" autoplay muted playsinline></video>
+          <canvas id="overlayCanvas"></canvas>
+          <div class="camera-hud">
+            <div class="hud-top">
+              <div class="hud-badge"><div class="rec-dot"></div>LIVE · CAM-01</div>
+              <div class="hud-badge" id="fpsCounter">-- FPS</div>
+            </div>
+            <div class="hud-bottom">
+              <div class="hud-badge" id="detectionStatus">🔍 Scanning…</div>
+              <div class="hud-badge" id="timeStamp"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Camera controls -->
+        <div class="cam-controls">
+          <button class="btn btn-ghost btn-sm" onclick="startCamera()"><span class="material-icons-round">videocam</span>Start Camera</button>
+          <button class="btn btn-ghost btn-sm" onclick="stopCamera()"><span class="material-icons-round">videocam_off</span>Stop</button>
+          <button class="btn btn-ghost btn-sm" onclick="takeSnapshot()"><span class="material-icons-round">photo_camera</span>Snapshot</button>
+          <button class="btn btn-danger btn-sm" id="autoScanBtn" onclick="toggleAutoScan()"><span class="material-icons-round">loop</span>Auto-Scan: OFF</button>
+        </div>
+
+        <!-- Upload scan -->
+        <div class="card mt-2">
+          <h3 style="font-size:15px;font-weight:700;margin-bottom:14px"><span class="material-icons-round" style="vertical-align:middle;font-size:18px;margin-right:6px;color:var(--primary)">upload</span>Upload Image for Analysis</h3>
+          <form id="uploadForm">
+            <div class="photo-drop" id="photoDrop">
+              <input type="file" id="photoInput" accept="image/*" onchange="previewPhoto(this)">
+              <span class="material-icons-round upload-icon">cloud_upload</span>
+              <p><strong>Drop image here</strong> or click to browse</p>
+              <p style="font-size:11px;margin-top:4px">Supports: JPG, PNG, WEBP</p>
+            </div>
+            <img id="photoPreviewImg" class="photo-preview" style="display:none">
+            <div class="flex gap-2 mt-2">
+              <button type="button" class="btn btn-primary" onclick="analyzeUpload()">
+                <span class="material-icons-round">search</span>Analyze Face
+              </button>
+              <button type="button" class="btn btn-ghost" onclick="clearPhoto()">Clear</button>
+            </div>
+          </form>
+
+          <div id="detectionResult" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Right: Detection panel -->
+      <div>
+        <div class="card mb-2">
+          <h3 style="font-size:14px;font-weight:700;margin-bottom:14px">
+            <span class="material-icons-round" style="vertical-align:middle;font-size:16px;margin-right:6px;color:var(--warning)">warning</span>
+            Latest Detection
+          </h3>
+          <div id="latestDetection">
+            <div class="empty-state">
+              <span class="material-icons-round">search</span>
+              <p>No detection yet.<br>Use the scanner above.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="font-size:14px;font-weight:700;margin-bottom:14px">
+            <span class="material-icons-round" style="vertical-align:middle;font-size:16px;margin-right:6px;color:var(--primary)">history</span>
+            Today's Detections
+          </h3>
+          <div id="todayDetections" style="max-height:350px;overflow-y:auto">
+            <div class="empty-state"><span class="material-icons-round">remove_red_eye</span><p>No detections today</p></div>
+          </div>
+        </div>
+
+        <!-- System info -->
+        <div class="card mt-2" style="background:rgba(79,172,254,0.04);border-color:rgba(79,172,254,0.15)">
+          <p style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--primary);margin-bottom:12px">AI Engine Status</p>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;justify-content:space-between;font-size:12px">
+              <span class="text-muted">Face Detection</span><span style="color:var(--success)">● OpenCV Haar</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12px">
+              <span class="text-muted">Recognition</span><span style="color:var(--success)">● LBPH Active</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12px">
+              <span class="text-muted">Age/Gender</span><span style="color:var(--warning)">● DeepFace (opt)</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12px">
+              <span class="text-muted">Criminals in DB</span><span id="dbCount" style="color:var(--text-primary)">Loading…</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="/static/js/auth.js"></script>
+<script src="/static/js/api.js"></script>
+<script>
+  let stream = null;
+  let autoScan = false;
+  let autoInterval = null;
+  let frameCount = 0;
+  let lastFPSTime = Date.now();
+
+  // Clock in HUD
+  setInterval(() => {
+    document.getElementById('timeStamp').textContent = new Date().toLocaleTimeString('en-IN');
+  }, 1000);
+
+  async function startCamera() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+      document.getElementById('liveVideo').srcObject = stream;
+      document.getElementById('detectionStatus').textContent = '🟢 Camera Active';
+      Toast.success('Camera started');
+    } catch(e) {
+      Toast.error('Camera access denied: ' + e.message);
+      document.getElementById('detectionStatus').textContent = '🔴 Camera Offline';
+    }
+  }
+
+  function stopCamera() {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    stopAutoScan();
+    document.getElementById('detectionStatus').textContent = '⚫ Camera Stopped';
+  }
+
+  function takeSnapshot() {
+    const video = document.getElementById('liveVideo');
+    if (!video.srcObject) { Toast.warning('Start camera first'); return; }
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    canvas.toBlob(blob => {
+      const file = new File([blob], 'snapshot.jpg', { type: 'image/jpeg' });
+      previewFile(file);
+    }, 'image/jpeg', 0.9);
+  }
+
+  function captureAndAnalyze() {
+    const video = document.getElementById('liveVideo');
+    if (!video.srcObject) { Toast.warning('Start camera first, or use upload'); analyzeUpload(); return; }
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    canvas.toBlob(blob => {
+      const file = new File([blob], 'capture.jpg', { type: 'image/jpeg' });
+      runAnalysis(file);
+    }, 'image/jpeg', 0.9);
+  }
+
+  function toggleAutoScan() {
+    if (autoScan) { stopAutoScan(); } else { startAutoScan(); }
+  }
+
+  function startAutoScan() {
+    if (!stream) { Toast.warning('Start camera first'); return; }
+    autoScan = true;
+    document.getElementById('autoScanBtn').innerHTML = '<span class="material-icons-round">stop_circle</span>Auto-Scan: ON';
+    document.getElementById('autoScanBtn').classList.add('btn-primary');
+    document.getElementById('autoScanBtn').classList.remove('btn-danger');
+    autoInterval = setInterval(captureAndAnalyze, 5000);
+    Toast.info('Auto-scan every 5 seconds');
+  }
+
+  function stopAutoScan() {
+    autoScan = false;
+    clearInterval(autoInterval);
+    document.getElementById('autoScanBtn').innerHTML = '<span class="material-icons-round">loop</span>Auto-Scan: OFF';
+    document.getElementById('autoScanBtn').classList.remove('btn-primary');
+    document.getElementById('autoScanBtn').classList.add('btn-danger');
+  }
+
+  function previewPhoto(input) {
+    const file = input.files[0];
+    if (file) previewFile(file);
+  }
+
+  function previewFile(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = document.getElementById('photoPreviewImg');
+      img.src = e.target.result; img.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+    document.getElementById('photoInput')._file = file;
+  }
+
+  function clearPhoto() {
+    document.getElementById('photoInput').value = '';
+    document.getElementById('photoPreviewImg').style.display = 'none';
+    document.getElementById('detectionResult').style.display = 'none';
+    delete document.getElementById('photoInput')._file;
+  }
+
+  async function analyzeUpload() {
+    const input = document.getElementById('photoInput');
+    const file = input._file || (input.files && input.files[0]);
+    if (!file) { Toast.warning('Select an image first'); return; }
+    runAnalysis(file);
+  }
+
+  async function runAnalysis(file) {
+    const btn = document.getElementById('captureBtn');
+    btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Analyzing…';
+    document.getElementById('detectionStatus').textContent = '🔍 Processing…';
+
+    try {
+      const fd = new FormData();
+      fd.append('photo', file);
+      fd.append('camera_location', 'Live Webcam');
+
+      const res = await API.postForm('/api/recognize', fd);
+      displayResult(res);
+      loadTodayDetections();
+    } catch(e) {
+      Toast.error('Analysis failed: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-icons-round">center_focus_strong</span> Scan Face';
+      document.getElementById('detectionStatus').textContent = '🟢 Camera Active';
+    }
+  }
+
+  function displayResult(res) {
+    const el = document.getElementById('detectionResult');
+    const latest = document.getElementById('latestDetection');
+    el.style.display = 'block';
+
+    if (res.match) {
+      const c = res.criminal;
+      // Show alert popup
+      showAlertPopup(c, res.confidence);
+
+      el.className = 'detection-result match';
+      el.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;color:#ef4444;font-weight:700;margin-bottom:12px">
+          <span class="material-icons-round">warning</span>
+          CRIMINAL IDENTIFIED — ${Math.round(res.confidence)}% MATCH
+        </div>
+        <div class="result-criminal">
+          ${c.image_path ? `<img src="${c.image_path}" onerror="this.style.display='none'">` : ''}
+          <div>
+            <div class="result-field"><span>Name</span><p>${c.name} ${c.alias ? `(${c.alias})` : ''}</p></div>
+            <div class="result-field"><span>FIR Number</span><p class="mono">${c.fir_number || '—'}</p></div>
+            <div class="result-field"><span>Threat Level</span><p>${threatBadge(c.threat_level)}</p></div>
+            <div class="result-field"><span>Status</span><p>${statusBadge(c.case_status)}</p></div>
+          </div>
+        </div>
+        ${res.age_estimate ? `<div style="margin-top:10px;font-size:12px;color:var(--text-muted)">Estimated: Age ${res.age_estimate}${res.gender_estimate ? ` · ${res.gender_estimate}` : ''}</div>` : ''}`;
+
+      latest.innerHTML = el.innerHTML;
+    } else {
+      el.className = 'detection-result no-match';
+      el.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;color:var(--success);font-weight:700">
+          <span class="material-icons-round">check_circle</span>
+          No Criminal Match Found
+        </div>
+        ${res.age_estimate ? `<div style="margin-top:8px;font-size:12px;color:var(--text-muted)">Person appears to be: Age ~${res.age_estimate}${res.gender_estimate ? ` · ${res.gender_estimate}` : ''}</div>` : ''}
+        <div style="margin-top:8px;font-size:12px;color:var(--text-muted)">Detection logged as unknown person</div>`;
+
+      latest.innerHTML = `<div style="color:var(--success);display:flex;align-items:center;gap:8px;font-weight:600"><span class="material-icons-round">check_circle</span>No criminal match</div>`;
+    }
+  }
+
+  function showAlertPopup(criminal, confidence) {
+    const popup = document.createElement('div');
+    popup.className = 'alert-popup';
+    popup.innerHTML = `
+      <h3><span class="material-icons-round">warning</span> CRIMINAL DETECTED</h3>
+      <p style="font-size:14px;font-weight:600;margin-bottom:6px">${criminal.name}</p>
+      <p style="font-size:12px;color:var(--text-muted)">FIR: ${criminal.fir_number || '—'} · ${Math.round(confidence)}% confidence</p>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:4px">Threat: ${criminal.threat_level}</p>
+      <button onclick="this.parentElement.remove()" class="btn btn-ghost btn-sm" style="margin-top:12px;width:100%">Dismiss</button>`;
+    document.body.appendChild(popup);
+    // Play alert sound
+    playAlarm();
+    setTimeout(() => { if (popup.parentElement) popup.remove(); }, 10000);
+  }
+
+  function playAlarm() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [880, 660, 880, 660].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = freq; osc.type = 'square';
+        gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.2);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.2 + 0.15);
+        osc.start(ctx.currentTime + i * 0.2);
+        osc.stop(ctx.currentTime + i * 0.2 + 0.15);
+      });
+    } catch {}
+  }
+
+  async function loadTodayDetections() {
+    try {
+      const logs = await API.detections('?limit=15');
+      const el = document.getElementById('todayDetections');
+      if (!logs.length) {
+        el.innerHTML = '<div class="empty-state"><span class="material-icons-round">remove_red_eye</span><p>No detections today</p></div>';
+        return;
+      }
+      el.innerHTML = logs.map(l => `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+          <div class="${l.is_unknown ? 'activity-icon amber' : 'activity-icon red'}" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px">
+            <span class="material-icons-round">${l.is_unknown ? 'help' : 'person_search'}</span>
+          </div>
+          <div style="flex:1;min-width:0">
+            <p style="font-size:12px;font-weight:600;truncate">${l.criminal_name || 'Unknown'}</p>
+            <p style="font-size:10px;color:var(--text-muted)">${l.camera_location || '—'} · ${timeAgo(l.detected_at)}</p>
+          </div>
+          ${threatBadge(l.threat_level)}
+        </div>`).join('');
+    } catch {}
+  }
+
+  // Load DB count
+  async function loadDBCount() {
+    try { const s = await API.stats(); document.getElementById('dbCount').textContent = s.total_criminals + ' records'; }
+    catch {}
+  }
+
+  loadTodayDetections(); loadDBCount();
+</script>
+</body>
+</html>

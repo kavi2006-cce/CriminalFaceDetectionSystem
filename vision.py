@@ -1,82 +1,147 @@
-import cv2
+from pathlib import Path
 import os
-import numpy as np
 
-# Load Haar cascade downloaded previously
-face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+BASE_DIR = Path(__file__).resolve().parent
+DATASET_DIR = BASE_DIR / 'dataset'
+DATASET_CRIMINAL_DIR = BASE_DIR / 'dataset_criminals'
+TRAINER_PATH = BASE_DIR / 'trainer.yml'
+TRAINER_CRIMINAL_PATH = BASE_DIR / 'trainer_criminals.yml'
+CASCADE_PATH = BASE_DIR / 'haarcascade_frontalface_default.xml'
 
-def process_and_save_face(image_path, criminal_id):
+CV_AVAILABLE = True
+try:
+    import cv2
+    import numpy as np
+except Exception:
+    cv2 = None
+    np = None
+    CV_AVAILABLE = False
+
+if CV_AVAILABLE:
+    face_cascade = cv2.CascadeClassifier(str(CASCADE_PATH))
+
+
+def _detect_faces(img):
+    """Return list of face bounding boxes from a BGR image."""
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(
+        gray, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40)
+    )
+    return gray, list(faces)
+
+
+def process_and_save_face(image_path: str, person_id: int, is_criminal: bool = False) -> bool:
+    """Detect the largest face in the image and save a grayscale crop for training."""
+    if not CV_AVAILABLE:
+        return False
     img = cv2.imread(image_path)
     if img is None:
         return False
-    
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(50, 50))
-    
-    if len(faces) == 0:
+    gray, faces = _detect_faces(img)
+    if not faces:
         return False
-    
-    # Save the largest face found
-    faces = sorted(faces, key=lambda x: x[2]*x[3], reverse=True)
-    x, y, w, h = faces[0]
-    face_crop = gray[y:y+h, x:x+w]
-    
-    os.makedirs('dataset', exist_ok=True)
-    cv2.imwrite(f'dataset/{criminal_id}.jpg', face_crop)
+
+    faces_sorted = sorted(faces, key=lambda r: r[2] * r[3], reverse=True)
+    x, y, w, h = faces_sorted[0]
+    face_crop = gray[y:y + h, x:x + w]
+
+    target_dir = DATASET_CRIMINAL_DIR if is_criminal else DATASET_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+    out_path = target_dir / f'{person_id}.jpg'
+    cv2.imwrite(str(out_path), face_crop)
     return True
 
-def train_recognizer():
-    recognizer = cv2.face.LBPHFaceRecognizer_create()
-    faces = []
-    labels = []
-    
-    if not os.path.exists('dataset'):
+
+def _train(dataset_dir: Path, trainer_path: Path) -> bool:
+    """Train LBPH recognizer from a dataset directory."""
+    if not CV_AVAILABLE or not dataset_dir.exists():
         return False
-        
-    for f in os.listdir('dataset'):
-        if f.endswith('.jpg'):
-            criminal_id = int(f.split('.')[0])
-            img_path = os.path.join('dataset', f)
-            img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-            if img is not None:
-                faces.append(img)
-                labels.append(criminal_id)
-                
-    if len(faces) > 0:
+    recognizer = cv2.face.LBPHFaceRecognizer_create()
+    faces, labels = [], []
+    for f in os.listdir(dataset_dir):
+        if f.lower().endswith(('.jpg', '.png')):
+            try:
+                person_id = int(f.split('.')[0])
+                img = cv2.imread(str(dataset_dir / f), cv2.IMREAD_GRAYSCALE)
+                if img is not None:
+                    faces.append(img)
+                    labels.append(person_id)
+            except ValueError:
+                pass
+    if faces:
         recognizer.train(faces, np.array(labels))
-        recognizer.write('trainer.yml')
+        recognizer.write(str(trainer_path))
         return True
     return False
 
-def recognize_face(image_path):
-    if not os.path.exists('trainer.yml'):
+
+def train_recognizer() -> bool:
+    """Train staff LBPH recognizer."""
+    return _train(DATASET_DIR, TRAINER_PATH)
+
+
+def train_criminal_recognizer() -> bool:
+    """Train criminal LBPH recognizer."""
+    return _train(DATASET_CRIMINAL_DIR, TRAINER_CRIMINAL_PATH)
+
+
+def _recognize(image_path: str, trainer_path: Path, confidence_threshold: float = 75.0):
+    """Return (person_id, confidence_pct) or (None, 0) if no match."""
+    if not CV_AVAILABLE or not trainer_path.exists():
         return None, 0
-        
-    recognizer = cv2.face.LBPHFaceRecognizer_create()
-    recognizer.read('trainer.yml')
-    
     img = cv2.imread(image_path)
     if img is None:
         return None, 0
-    
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(50, 50))
-    
-    if len(faces) == 0:
+    gray, faces = _detect_faces(img)
+    if not faces:
         return None, 0
-        
-    # Process largest face
-    faces = sorted(faces, key=lambda x: x[2]*x[3], reverse=True)
-    x, y, w, h = faces[0]
-    face_crop = gray[y:y+h, x:x+w]
-    
-    # Predict
-    label, confidence = recognizer.predict(face_crop)
-    
-    # LBPH distance (lower is closer/better).
-    # Normally, < 65 is a very good match.
-    match_percentage = max(0, 100 - confidence)
-    
-    if confidence < 75:  
-        return label, match_percentage
+
+    recognizer = cv2.face.LBPHFaceRecognizer_create()
+    recognizer.read(str(trainer_path))
+
+    faces_sorted = sorted(faces, key=lambda r: r[2] * r[3], reverse=True)
+    x, y, w, h = faces_sorted[0]
+    face_crop = gray[y:y + h, x:x + w]
+    label, dist = recognizer.predict(face_crop)
+    confidence = max(0.0, 100.0 - dist)
+    if dist < confidence_threshold:
+        return label, round(confidence, 2)
     return None, 0
+
+
+def recognize_face(image_path: str):
+    """Legacy: match against authorized staff."""
+    person_id, confidence = _recognize(image_path, TRAINER_PATH)
+    return person_id, confidence
+
+
+def recognize_criminal_face(image_path: str) -> dict:
+    """Match image against criminal database.
+    Returns dict with match info including basic face attributes.
+    """
+    result = {"match": False, "criminal_id": None, "confidence": 0, "age": None, "gender": None}
+
+    criminal_id, confidence = _recognize(image_path, TRAINER_CRIMINAL_PATH)
+    if criminal_id is not None:
+        result["match"] = True
+        result["criminal_id"] = criminal_id
+        result["confidence"] = confidence
+
+    # Try age/gender estimation via DeepFace (optional, graceful failure)
+    try:
+        from deepface import DeepFace
+        analysis = DeepFace.analyze(
+            img_path=image_path,
+            actions=["age", "gender"],
+            enforce_detection=False,
+            silent=True
+        )
+        if isinstance(analysis, list):
+            analysis = analysis[0]
+        result["age"] = analysis.get("age")
+        dominant_gender = analysis.get("dominant_gender", "")
+        result["gender"] = "Male" if "man" in dominant_gender.lower() else "Female" if "woman" in dominant_gender.lower() else dominant_gender
+    except Exception:
+        pass  # DeepFace not available or analysis failed — not critical
+
+    return result

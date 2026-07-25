@@ -1,8 +1,14 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+import os
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./cfcs.db"
+# Use ephemeral /tmp path on Vercel to avoid write-permission issues in other
+# runtime environments. Locally we keep the repository-root sqlite file.
+if os.environ.get("VERCEL"):
+    SQLALCHEMY_DATABASE_URL = "sqlite:////tmp/cfcs.db"
+else:
+    SQLALCHEMY_DATABASE_URL = "sqlite:///./cfcs.db"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}

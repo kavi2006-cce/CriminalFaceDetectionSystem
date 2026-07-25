@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  cfcs-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cfcs_surveillance_app
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - DATABASE_URL=sqlite:///./cfcs.db
+      - JWT_SECRET_KEY=cfcs_law_enforcement_jwt_secret_key_2026
+    volumes:
+      - ./static/uploads:/app/static/uploads
+      - ./cfcs.db:/app/cfcs.db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  default:
+    name: cfcs_network
