@@ -20,13 +20,37 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
 
-Base.metadata.create_all(bind=engine)
 app = FastAPI(title="CFCS — Criminal Face Detection System", version="2.0.0")
 
-for d in ["uploads/staff", "uploads/criminals", "uploads/detections", "uploads/temp"]:
-    os.makedirs(STATIC_DIR / d, exist_ok=True)
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={
+            "status": "error",
+            "message": "Internal Server Error",
+            "detail": str(exc),
+            "path": str(request.url)
+        }
+    )
 
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as db_err:
+    print(f"Database init warning: {db_err}")
+
+for d in ["uploads/staff", "uploads/criminals", "uploads/detections", "uploads/temp"]:
+    try:
+        os.makedirs(STATIC_DIR / d, exist_ok=True)
+    except Exception:
+        try:
+            os.makedirs(Path("/tmp") / d, exist_ok=True)
+        except Exception:
+            pass
+
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
